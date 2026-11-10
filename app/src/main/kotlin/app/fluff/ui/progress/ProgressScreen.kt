@@ -315,8 +315,9 @@ private fun Volume(state: ProgressState) {
 @Composable
 private fun Consistency(state: ProgressState) {
     FluffCard {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Eyebrow("Consistency", Modifier.weight(1f))
+        // FlowRow so the streak pill drops to its own line at large text instead of breaking the title mid-word.
+        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalArrangement = Arrangement.spacedBy(6.dp), itemVerticalAlignment = Alignment.CenterVertically) {
+            Eyebrow("Consistency")
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clip(CircleShape).background(Fluff.Coral.copy(alpha = 0.14f)).padding(horizontal = 10.dp, vertical = 6.dp)) {
                 Icon(Icons.Rounded.LocalFireDepartment, null, tint = Fluff.Coral, modifier = Modifier.size(16.dp))
                 Text(" ${state.streak} week streak", style = MaterialTheme.typography.labelLarge, color = Fluff.Coral, maxLines = 1)

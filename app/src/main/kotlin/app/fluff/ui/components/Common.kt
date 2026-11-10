@@ -148,11 +148,16 @@ fun Pill(
 @Composable
 fun StatTile(label: String, value: String, modifier: Modifier = Modifier, unit: String? = null, accent: Color = Fluff.Text, caption: String? = null) {
     FluffCard(modifier, padding = PaddingValues(16.dp)) {
-        Eyebrow(label)
+        // Three tiles share a row, so on narrow screens or large text the label and value shrink rather than
+        // wrap ("VOLUM" / "E", "8.4k" with "kg" split over two lines).
+        Text(
+            label.uppercase(), style = FluffTheme.type.eyebrow, color = Fluff.TextFaint, maxLines = 1, softWrap = false,
+            autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = FluffTheme.type.eyebrow.fontSize),
+        )
         Spacer(Modifier.height(6.dp))
         Row(verticalAlignment = Alignment.Bottom) {
-            AnimatedNumber(value, FluffTheme.type.number, color = accent)
-            if (unit != null) Text(" $unit", style = MaterialTheme.typography.labelLarge, color = Fluff.TextDim, modifier = Modifier.padding(bottom = 4.dp))
+            AnimatedNumber(value, FluffTheme.type.number, Modifier.weight(1f, fill = false), color = accent, shrinkToFit = true)
+            if (unit != null) Text("\u00A0$unit", style = MaterialTheme.typography.labelLarge, color = Fluff.TextDim, maxLines = 1, softWrap = false, modifier = Modifier.padding(bottom = 4.dp))
         }
         if (caption != null) Text(caption, style = MaterialTheme.typography.bodySmall, color = Fluff.TextFaint)
     }

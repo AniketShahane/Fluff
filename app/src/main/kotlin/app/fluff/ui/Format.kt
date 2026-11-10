@@ -25,7 +25,8 @@ inline fun <reified VM : ViewModel> fluffViewModel(key: String? = null, crossinl
 
 object Fmt {
     fun weight(kg: Double?, unit: WeightUnit): String = kg?.let { Loads.format(it, unit) } ?: "–"
-    fun weightWithUnit(kg: Double?, unit: WeightUnit): String = kg?.let { "${Loads.format(it, unit)} ${unit.label}" } ?: "Bodyweight"
+    // Non-breaking space: a number and its unit never wrap apart ("150" / "kg").
+    fun weightWithUnit(kg: Double?, unit: WeightUnit): String = kg?.let { "${Loads.format(it, unit)}\u00A0${unit.label}" } ?: "Bodyweight"
 
     fun bigWeight(kg: Double, unit: WeightUnit): String {
         val v = unit.fromKg(kg)
@@ -48,7 +49,7 @@ object Fmt {
         else -> "${sec / 60}:${"%02d".format(sec % 60)}"
     }
 
-    fun minutes(min: Int): String = if (min >= 60) "${min / 60}h ${min % 60}m".replace(" 0m", "") else "$min min"
+    fun minutes(min: Int): String = if (min >= 60) "${min / 60}h ${min % 60}m".replace(" 0m", "") else "$min\u00A0min"
 
     private val dayMonth = DateTimeFormatter.ofPattern("EEE, MMM d")
     private val monthYear = DateTimeFormatter.ofPattern("MMMM yyyy")
