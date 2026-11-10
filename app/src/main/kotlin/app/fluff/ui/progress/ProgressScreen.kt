@@ -26,6 +26,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.layout.FlowRow
+import app.fluff.ui.components.bleed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -106,7 +108,7 @@ fun ProgressScreen(state: ProgressState, actions: ProgressActions, modifier: Mod
     ) {
         item {
             Column(Modifier.windowInsetsPadding(WindowInsets.statusBars).padding(top = 12.dp)) {
-                Eyebrow("${state.totalSessions} sessions logged")
+                Eyebrow(if (state.loading) "" else "${state.totalSessions} sessions logged")
                 Text("Progress", style = MaterialTheme.typography.headlineLarge)
             }
         }
@@ -118,7 +120,7 @@ fun ProgressScreen(state: ProgressState, actions: ProgressActions, modifier: Mod
             if (state.activityStrength.isNotEmpty()) item(key = "sport") { SportStrength(state) }
         }
         if (state.lifts.isNotEmpty()) item(key = "lifts") { LiftTrend(state, actions) }
-        item(key = "goals") { Goals(state, actions) { addGoal = true } }
+        if (!state.loading) item(key = "goals") { Goals(state, actions) { addGoal = true } }
         if (state.totalSessions > 0) {
             item(key = "volume") { Volume(state) }
             item(key = "consistency") { Consistency(state) }
@@ -161,7 +163,7 @@ private fun StrengthCard(state: ProgressState) {
             values = scored.map { (it.score / 100f).coerceAtMost(1.1f) },
             modifier = Modifier.fillMaxWidth().aspectRatio(1.15f),
         )
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             StrengthLevel.entries.drop(1).forEach { l ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(8.dp).clip(CircleShape).background(levelColor(l)))
@@ -177,7 +179,8 @@ private fun StrengthCard(state: ProgressState) {
 private fun SportStrength(state: ProgressState) {
     Column {
         Eyebrow("Strength for your sports", Modifier.padding(start = 4.dp, bottom = 8.dp))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        // Bleeds to the screen edges so a third card scrolls in from the edge rather than being cut at the padding.
+        LazyRow(Modifier.bleed(20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(horizontal = 20.dp)) {
             items(state.activityStrength, key = { it.activity.name }) { a ->
                 FluffCard(Modifier.width(168.dp)) {
                     Text(a.activity.emoji, style = MaterialTheme.typography.headlineMedium)
@@ -262,7 +265,7 @@ private fun Goals(state: ProgressState, actions: ProgressActions, onAdd: () -> U
                         }
                         Spacer(Modifier.width(14.dp))
                         Column(Modifier.weight(1f)) {
-                            Text("${PlanText.name(g.goal.exerciseId)} · ${Fmt.weightWithUnit(g.goal.targetKg, unit)}", style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("${PlanText.name(g.goal.exerciseId)} · ${Fmt.weightWithUnit(g.goal.targetKg, unit)}", style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             Text(goalLine(g, unit), style = MaterialTheme.typography.bodySmall, color = Fluff.TextDim, maxLines = 3)
                         }
                         IconButton(onClick = { actions.deleteGoal(g.goal.id) }) { Icon(Icons.Rounded.Delete, "Delete goal", tint = Fluff.TextFaint) }
@@ -313,15 +316,13 @@ private fun Volume(state: ProgressState) {
 private fun Consistency(state: ProgressState) {
     FluffCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Eyebrow("Consistency")
-                Text("Strength + other activities", style = MaterialTheme.typography.bodySmall, color = Fluff.TextFaint)
-            }
+            Eyebrow("Consistency", Modifier.weight(1f))
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clip(CircleShape).background(Fluff.Coral.copy(alpha = 0.14f)).padding(horizontal = 10.dp, vertical = 6.dp)) {
                 Icon(Icons.Rounded.LocalFireDepartment, null, tint = Fluff.Coral, modifier = Modifier.size(16.dp))
-                Text(" ${state.streak} week streak", style = MaterialTheme.typography.labelLarge, color = Fluff.Coral)
+                Text(" ${state.streak} week streak", style = MaterialTheme.typography.labelLarge, color = Fluff.Coral, maxLines = 1)
             }
         }
+        Text("Strength + other activities", style = MaterialTheme.typography.bodySmall, color = Fluff.TextFaint)
         Spacer(Modifier.height(14.dp))
         CalendarHeatmap(state.heat, state.today)
     }

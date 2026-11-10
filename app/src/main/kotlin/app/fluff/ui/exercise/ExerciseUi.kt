@@ -226,7 +226,7 @@ fun ExerciseDetail(exerciseId: String, insights: List<Insight> = emptyList(), mo
         Text(ex.name, style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(14.dp))
         if (video != null) {
-            FormVideoPlayer(video, Modifier.fillMaxWidth(0.72f).align(Alignment.CenterHorizontally).heightIn(max = 460.dp).aspectRatio(9f / 16f))
+            FormVideoPlayer(video, Modifier.fillMaxWidth(0.72f).align(Alignment.CenterHorizontally).heightIn(max = 380.dp).aspectRatio(9f / 16f))
             Spacer(Modifier.height(8.dp))
             Row(
                 Modifier.align(Alignment.CenterHorizontally).clip(CircleShape).clickable(role = Role.Button) { openUrl(context, video.watchUrl) }.padding(horizontal = 10.dp, vertical = 6.dp),

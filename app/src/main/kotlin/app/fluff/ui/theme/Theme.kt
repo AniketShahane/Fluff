@@ -126,7 +126,8 @@ private val typography = Typography(
     bodyLarge = TextStyle(fontFamily = InterText, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 24.sp, letterSpacing = (-0.1).sp),
     bodyMedium = TextStyle(fontFamily = InterText, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 21.sp, letterSpacing = (-0.05).sp),
     bodySmall = TextStyle(fontFamily = InterText, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 17.sp),
-    labelLarge = TextStyle(fontFamily = InterText, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 20.sp, fontFeatureSettings = TABULAR),
+    // No tabular figures here: labelLarge is mostly words (buttons, chips) and Inter's tnum widens hyphens ("warm - up").
+    labelLarge = TextStyle(fontFamily = InterText, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 20.sp),
     labelMedium = TextStyle(fontFamily = InterText, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.1.sp, fontFeatureSettings = TABULAR),
     labelSmall = TextStyle(fontFamily = InterText, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 14.sp, letterSpacing = 0.2.sp, fontFeatureSettings = TABULAR),
 )

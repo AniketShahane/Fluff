@@ -167,8 +167,11 @@ fun OnboardingScreen(vm: ProfileViewModel, onDone: () -> Unit) {
                     icon = Icons.AutoMirrored.Rounded.ArrowForward,
                     enabled = page != 1 || name.isNotBlank(),
                 )
+                // The Skip row's space is always reserved so Continue doesn't jump between steps.
                 if (steps[page].optional && page != steps.lastIndex) {
-                    TextButton(onClick = { next() }, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Skip", color = Fluff.TextDim) }
+                    TextButton(onClick = { next() }, modifier = Modifier.align(Alignment.CenterHorizontally).height(48.dp)) { Text("Skip", color = Fluff.TextDim) }
+                } else {
+                    Spacer(Modifier.height(48.dp))
                 }
             }
         }

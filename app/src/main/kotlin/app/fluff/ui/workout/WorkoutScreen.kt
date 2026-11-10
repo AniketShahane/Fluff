@@ -333,16 +333,16 @@ private fun FocusCard(state: WorkoutState, g: ExerciseGroup, actions: WorkoutAct
         if (timed) {
             TimedControl(d?.durationSec ?: set.targetDurationSec ?: 30, color, actions.duration, actions.log, state.settings.hapticsEnabled)
         } else {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (g.exercise?.isLoaded == true) {
                     val bodyweight = g.exercise.loadType == app.fluff.core.model.LoadType.BODYWEIGHT
                     Stepper(
                         d?.weight?.let { Fmt.weight(unit.toKg(it), unit) } ?: "0",
                         if (bodyweight) "+${unit.label}" else if (g.exercise.loadType == app.fluff.core.model.LoadType.PER_HAND) "${unit.label} each" else unit.label,
-                        { actions.weight(-1) }, { actions.weight(1) },
+                        { actions.weight(-1) }, { actions.weight(1) }, Modifier.weight(1f), fill = true,
                     )
                 }
-                Stepper("${d?.reps ?: 0}", "reps", { actions.reps(-1) }, { actions.reps(1) })
+                Stepper("${d?.reps ?: 0}", "reps", { actions.reps(-1) }, { actions.reps(1) }, Modifier.weight(1f), fill = true)
             }
             if (!warm && g.block == BlockType.MAIN) {
                 Spacer(Modifier.height(16.dp))
@@ -481,7 +481,8 @@ private fun GroupRow(g: ExerciseGroup, state: WorkoutState, actions: WorkoutActi
                 val done = g.sets.count { it.completedAt != null }
                 Box(Modifier.size(28.dp).clip(CircleShape).background(if (g.done) color else Fluff.CardHigh), contentAlignment = Alignment.Center) {
                     if (g.done) Icon(Icons.Rounded.Check, null, tint = Fluff.Night, modifier = Modifier.size(16.dp))
-                    else Text("${g.order + 1}", style = MaterialTheme.typography.labelMedium, color = Fluff.TextDim)
+                    // Numbered within its block, so the first main lift is 1, not 7.
+                    else Text("${state.groups.filter { it.block == g.block }.indexOf(g) + 1}", style = MaterialTheme.typography.labelMedium, color = Fluff.TextDim)
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {

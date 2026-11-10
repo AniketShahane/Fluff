@@ -118,9 +118,8 @@ fun TrendChart(
         fun x(d: LocalDate) = left + (right - left) * (ChronoUnit.DAYS.between(start, d) / span)
         fun y(v: Double) = (bottom - (bottom - top) * ((v - lo) / (hi - lo))).toFloat()
 
-        // Grid: three quiet lines with labels on the right.
-        for (i in 0..2) {
-            val v = lo + (hi - lo) * (0.2 + 0.3 * i)
+        // Grid: up to three quiet lines at round values, labels on the right.
+        for (v in niceTicks(lo, hi)) {
             val yy = y(v)
             drawLine(Fluff.Line.copy(alpha = 0.5f), Offset(left, yy), Offset(right, yy), 1.dp.toPx())
             drawLabel(measurer, format(v), Offset(right + 6.dp.toPx(), yy - 6.dp.toPx()))
@@ -197,7 +196,18 @@ private fun smoothPath(pts: List<Offset>): Path = Path().apply {
 }
 
 private fun DrawScope.drawLabel(m: TextMeasurer, text: String, at: Offset, color: Color = Fluff.TextFaint) {
-    drawText(m, text, at, axisStyle.copy(color = color))
+    // Never wrap: near the right edge a wrapped label turns "137.2" into "137." over "2".
+    drawText(m.measure(text, axisStyle.copy(color = color), softWrap = false, maxLines = 1), topLeft = at)
+}
+
+/** Round grid values (steps of 1, 2, 2.5 or 5 × 10ⁿ) inside [lo, hi], at most three of them. */
+internal fun niceTicks(lo: Double, hi: Double, max: Int = 3): List<Double> {
+    val range = hi - lo
+    if (range <= 0 || range.isNaN()) return listOf(lo)
+    val mag = Math.pow(10.0, kotlin.math.floor(kotlin.math.log10(range / max)))
+    val step = listOf(1.0, 2.0, 2.5, 5.0, 10.0, 20.0).map { it * mag }.first { kotlin.math.floor(hi / it) - kotlin.math.ceil(lo / it) + 1 <= max }
+    val first = kotlin.math.ceil(lo / step) * step
+    return generateSequence(first) { it + step }.takeWhile { it <= hi + 1e-9 }.toList()
 }
 
 /** Rounded bars that grow in with a stagger; the highlighted bar glows. */
@@ -226,6 +236,9 @@ fun BarChart(
             val ty = bottom - (bottom - top) * (it / maxV)
             drawLine(Fluff.TextFaint, Offset(0f, ty), Offset(size.width, ty), 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 8f)))
         }
+        // Thin out labels when they would collide (narrow screens, large text), always keeping the last one.
+        val labelW = labels.maxOfOrNull { measurer.measure(it, axisStyle).size.width }?.toFloat() ?: 0f
+        val every = kotlin.math.ceil((labelW + 6.dp.toPx()) / slot).toInt().coerceAtLeast(1)
         values.forEachIndexed { i, v ->
             // Each bar starts a little after the previous one.
             val local = ((grow.value * (1f + values.size * 0.08f)) - i * 0.08f).coerceIn(0f, 1f)
@@ -245,7 +258,7 @@ fun BarChart(
                 val t = measurer.measure(format(v), axisStyle.copy(color = Fluff.Text, fontWeight = FontWeight.Bold))
                 drawText(t, topLeft = Offset(cx - t.size.width / 2, bottom - h - t.size.height - 2.dp.toPx()))
             }
-            labels.getOrNull(i)?.let { l ->
+            labels.getOrNull(i)?.takeIf { (values.lastIndex - i) % every == 0 }?.let { l ->
                 val t = measurer.measure(l, axisStyle.copy(color = if (hi) Fluff.TextDim else Fluff.TextFaint))
                 drawText(t, topLeft = Offset(cx - t.size.width / 2, bottom + 4.dp.toPx()))
             }
@@ -335,7 +348,8 @@ fun CalendarHeatmap(
                 val v = intensity[day] ?: 0f
                 // Cells fade in diagonally.
                 val local = ((appear.value * 1.6f) - (w + d) / (weeks + 7f) * 0.6f).coerceIn(0f, 1f)
-                val c = if (v <= 0f) Fluff.Card else color.copy(alpha = (0.25f + 0.75f * v.coerceIn(0f, 1f)))
+                // Empty days stay faintly visible so the grid reads as a calendar, not scattered dots.
+                val c = if (v <= 0f) Fluff.Line.copy(alpha = 0.45f) else color.copy(alpha = (0.25f + 0.75f * v.coerceIn(0f, 1f)))
                 val tl = Offset(labelW + w * (cell + gap), d * (cell + gap))
                 drawRoundRect(c.copy(alpha = c.alpha * local), tl, Size(cell, cell), CornerRadius(cell * 0.28f))
                 if (day == today) drawRoundRect(Fluff.Text.copy(alpha = 0.8f), tl, Size(cell, cell), CornerRadius(cell * 0.28f), style = Stroke(1.dp.toPx()))
@@ -353,8 +367,10 @@ fun Sparkline(values: List<Float?>, modifier: Modifier = Modifier, color: Color 
         val present = values.withIndex().filter { it.value != null }
         if (present.isEmpty()) return@Canvas
         val lo = 0f; val hi = 100f
-        val step = if (values.size > 1) size.width / (values.size - 1) else 0f
-        val pts = present.map { Offset(it.index * step, size.height - size.height * ((it.value!! - lo) / (hi - lo))) }
+        // Inset by the end-dot radius so the first and last dots aren't cut in half.
+        val inset = 4.dp.toPx()
+        val step = if (values.size > 1) (size.width - inset * 2) / (values.size - 1) else 0f
+        val pts = present.map { Offset(inset + it.index * step, inset + (size.height - inset * 2) * (1f - (it.value!! - lo) / (hi - lo))) }
         clipRect(right = size.width * reveal.value + 4) {
             drawPath(smoothPath(pts), color.copy(alpha = 0.6f), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
             present.forEachIndexed { i, iv ->
