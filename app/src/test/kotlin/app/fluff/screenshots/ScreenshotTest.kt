@@ -50,6 +50,9 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.time.ZoneOffset
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 
 /**
  * Renders each main screen with realistic data. Run `./gradlew :app:recordRoborazziDebug` to
@@ -76,7 +79,7 @@ class ScreenshotTest {
             TodayScreen(
                 TodayState(
                     loading = false, today = d.today, profile = d.profile, readiness = d.readiness(78),
-                    history = d.readinessHistory().takeLast(14), plan = plan, coach = CoachStatus.Refined(emptyList()),
+                    history = d.readinessHistory().takeLast(14), plan = plan, coach = CoachStatus.Refined(emptyList()), insights = d.insights(plan),
                 ),
                 TodayActions(),
             )
@@ -86,7 +89,7 @@ class ScreenshotTest {
     @Test fun todayRecover() {
         val r = d.readiness(28)
         shot("02_today_recover") {
-            TodayScreen(TodayState(loading = false, today = d.today, profile = d.profile, readiness = r, history = d.readinessHistory().takeLast(14), plan = d.plan(28)), TodayActions())
+            TodayScreen(TodayState(loading = false, today = d.today, profile = d.profile, readiness = r, history = d.readinessHistory().takeLast(14), plan = d.plan(28), insights = d.insights(d.plan(28), 28)), TodayActions())
         }
     }
 
@@ -113,7 +116,7 @@ class ScreenshotTest {
                 WorkoutState(
                     loading = false, sessionId = 1, title = plan.title, startedAtMs = System.currentTimeMillis() - 19 * 60_000,
                     groups = all, currentSetId = current.id,
-                    draft = Draft(current.id, current.targetWeightKg, current.targetReps, 8.0, null), profile = d.profile,
+                    draft = Draft(current.id, current.targetWeightKg, current.targetReps, 8.0, null), profile = d.profile, insights = d.insights(plan),
                 ),
                 WorkoutActions(),
             )
@@ -176,6 +179,16 @@ class ScreenshotTest {
                 ),
                 ProfileActions(),
             )
+        }
+    }
+
+    @Test fun exerciseDetail() {
+        val plan = d.plan(78)
+        val id = plan.mainExercises.first().exerciseId
+        shot("08_exercise_detail", settleMs = 800) {
+            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.background(app.fluff.ui.theme.Fluff.Card).padding(top = 24.dp)) {
+                app.fluff.ui.exercise.ExerciseDetail(id, d.insights(plan)[id].orEmpty())
+            }
         }
     }
 }

@@ -51,7 +51,7 @@ import kotlin.math.sin
 
 data class ChartPoint(val date: LocalDate, val value: Double)
 
-private val axisStyle = TextStyle(color = Fluff.TextFaint, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+private val axisStyle = TextStyle(fontFamily = app.fluff.ui.theme.InterText, color = Fluff.TextFaint, fontSize = 10.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum")
 private val shortDate = DateTimeFormatter.ofPattern("MMM d")
 
 /**

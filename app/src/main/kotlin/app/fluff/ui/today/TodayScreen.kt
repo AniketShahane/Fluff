@@ -78,6 +78,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.material.icons.rounded.PlayCircle
+import androidx.compose.material3.rememberModalBottomSheetState
+import app.fluff.core.library.ExerciseLibrary
+import app.fluff.core.library.ExerciseVideos
+import app.fluff.core.planner.Insight
+import app.fluff.ui.exercise.ExerciseDetail
+import app.fluff.ui.exercise.InsightLine
+import app.fluff.ui.exercise.MovementTag
 import app.fluff.core.model.BlockType
 import app.fluff.core.model.CheckIn
 import app.fluff.core.model.Focus
@@ -116,6 +126,7 @@ data class TodayActions(
     val focus: (Focus?) -> Unit = {},
     val reset: () -> Unit = {},
     val openProfile: () -> Unit = {},
+    val startFreestyle: () -> Unit = {},
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -124,6 +135,7 @@ fun TodayScreen(state: TodayState, actions: TodayActions, modifier: Modifier = M
     var showCheckIn by rememberSaveable { mutableStateOf(false) }
     var showReadiness by rememberSaveable { mutableStateOf(false) }
     var showFocus by rememberSaveable { mutableStateOf(false) }
+    var openExercise by rememberSaveable { mutableStateOf<String?>(null) }
 
     Box(modifier.fillMaxSize()) {
         PullToRefreshBox(isRefreshing = state.syncing, onRefresh = actions.refresh, modifier = Modifier.fillMaxSize()) {
@@ -141,9 +153,18 @@ fun TodayScreen(state: TodayState, actions: TodayActions, modifier: Modifier = M
                     item(key = "checkin") { CheckInPrompt { showCheckIn = true } }
                 }
                 state.plan?.let { plan ->
-                    item(key = "plan") { PlanCard(plan, state, state.replanning) }
+                    item(key = "plan") { PlanCard(plan, state, state.replanning) { openExercise = it } }
                     if (state.activeSessionId == null && state.completed == null) {
                         item(key = "adjust") { AdjustRow(state, actions) { showFocus = true } }
+                    }
+                    if (state.activeSessionId == null) {
+                        item(key = "freestyle") {
+                            Text(
+                                "Doing your own thing? Log a workout from scratch",
+                                style = MaterialTheme.typography.labelLarge, color = Fluff.TextDim, textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().clip(CircleShape).clickable(role = Role.Button, onClick = actions.startFreestyle).padding(12.dp),
+                            )
+                        }
                     }
                 }
                 if (state.plan == null && !state.loading) item(key = "noplan") { NoPlan(actions.refresh) }
@@ -166,6 +187,11 @@ fun TodayScreen(state: TodayState, actions: TodayActions, modifier: Modifier = M
     if (showFocus) {
         ModalBottomSheet(onDismissRequest = { showFocus = false }, containerColor = Fluff.Ink) {
             FocusSheet(state.adjustments.focusOverride) { actions.focus(it); showFocus = false }
+        }
+    }
+    openExercise?.let { id ->
+        ModalBottomSheet(onDismissRequest = { openExercise = null }, containerColor = Fluff.Ink, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+            ExerciseDetail(id, state.insights[id].orEmpty())
         }
     }
 }
@@ -280,10 +306,11 @@ private fun DoneCard(c: CompletedToday, state: TodayState, onClick: () -> Unit) 
 }
 
 @Composable
-private fun PlanCard(plan: WorkoutPlan, state: TodayState, replanning: Boolean) {
-    var expanded by rememberSaveable(plan.epochDay) { mutableStateOf(true) }
+private fun PlanCard(plan: WorkoutPlan, state: TodayState, replanning: Boolean, onOpen: (String) -> Unit) {
+    var expanded by rememberSaveable(plan.epochDay) { mutableStateOf(false) }
     val shimmer = rememberInfiniteTransition(label = "replan")
     val alpha by shimmer.animateFloat(0.45f, 1f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "replanAlpha")
+    val bandColor = Fluff.band(state.readiness?.band ?: ReadinessBand.STEADY)
     FluffCard(Modifier.animateContentSize(Fluff.gentle())) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Eyebrow("Today's session", Modifier.weight(1f))
@@ -293,7 +320,7 @@ private fun PlanCard(plan: WorkoutPlan, state: TodayState, replanning: Boolean) 
         AnimatedContent(plan.title, transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(150)) }, label = "title") {
             Text(it, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.then(if (replanning) Modifier.semantics { contentDescription = "Updating plan" } else Modifier))
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Pill(Fmt.minutes(plan.estimatedMinutes), icon = Icons.Rounded.Timer)
             Pill(plan.focus.label)
@@ -304,20 +331,33 @@ private fun PlanCard(plan: WorkoutPlan, state: TodayState, replanning: Boolean) 
             Text("“$it”", style = MaterialTheme.typography.bodyMedium, color = Fluff.Violet)
         }
         if (plan.rationale.isNotEmpty()) {
-            Spacer(Modifier.height(12.dp))
-            plan.rationale.take(3).forEach { line ->
-                Row(Modifier.padding(vertical = 2.dp)) {
-                    Text("•", color = Fluff.band(state.readiness?.band ?: ReadinessBand.STEADY), modifier = Modifier.width(14.dp))
-                    Text(line, style = MaterialTheme.typography.bodyMedium, color = Fluff.TextDim)
+            Spacer(Modifier.height(14.dp))
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Fluff.Ink).padding(horizontal = 14.dp, vertical = 12.dp)) {
+                Eyebrow("Why this plan", color = bandColor)
+                Spacer(Modifier.height(6.dp))
+                plan.rationale.take(3).forEach { line ->
+                    Row(Modifier.padding(vertical = 3.dp)) {
+                        Box(Modifier.padding(top = 7.dp).size(5.dp).clip(CircleShape).background(bandColor))
+                        Spacer(Modifier.width(10.dp))
+                        Text(line, style = MaterialTheme.typography.bodyMedium, color = Fluff.TextDim)
+                    }
                 }
             }
         }
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(16.dp))
         Column(Modifier.then(if (replanning) Modifier.graphicsAlpha(alpha) else Modifier)) {
             BlockType.entries.forEach { bt ->
                 val block = plan.block(bt) ?: return@forEach
                 if (block.exercises.isEmpty()) return@forEach
-                TimelineBlock(bt, block.exercises.map { PlanText.name(it.exerciseId) to PlanText.summary(it, state.profile.unit) }, expanded || bt == BlockType.MAIN, last = bt == BlockType.COOLDOWN)
+                TimelineBlock(bt, expanded || bt == BlockType.MAIN, last = bt == BlockType.COOLDOWN, count = block.exercises.size) {
+                    block.exercises.forEach { pe ->
+                        if (bt == BlockType.MAIN) {
+                            MainExerciseRow(pe.exerciseId, PlanText.summary(pe, state.profile.unit), state.insights[pe.exerciseId].orEmpty()) { onOpen(pe.exerciseId) }
+                        } else {
+                            CompactRow(pe.exerciseId, PlanText.summary(pe, state.profile.unit)) { onOpen(pe.exerciseId) }
+                        }
+                    }
+                }
             }
         }
         Row(
@@ -334,7 +374,7 @@ private fun Modifier.graphicsAlpha(a: Float) = graphicsLayer { alpha = a }
 
 @Composable
 private fun SourceBadge(source: PlanSource) {
-    val ai = source == PlanSource.AI
+    val ai = source != PlanSource.ENGINE
     Row(
         Modifier.clip(CircleShape).background(if (ai) Fluff.Violet.copy(alpha = 0.16f) else Fluff.CardHigh).padding(horizontal = 10.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -346,30 +386,55 @@ private fun SourceBadge(source: PlanSource) {
 }
 
 @Composable
-private fun TimelineBlock(type: BlockType, rows: List<Pair<String, String>>, expanded: Boolean, last: Boolean) {
+private fun TimelineBlock(type: BlockType, expanded: Boolean, last: Boolean, count: Int, rows: @Composable () -> Unit) {
     val color = when (type) { BlockType.WARMUP -> Fluff.Amber; BlockType.MAIN -> Fluff.Lime; BlockType.COOLDOWN -> Fluff.Sky }
-    Row(Modifier.fillMaxWidth()) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(18.dp)) {
-            Box(Modifier.padding(top = 4.dp).size(10.dp).clip(CircleShape).background(color))
-            if (!last) Box(Modifier.width(2.dp).height(if (expanded) (rows.size * 46 + 12).dp else 22.dp).background(Brush.verticalGradient(listOf(color.copy(alpha = 0.6f), Fluff.Line))))
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(18.dp).fillMaxHeight()) {
+            Box(Modifier.padding(top = 5.dp).size(10.dp).clip(CircleShape).background(color))
+            if (!last) Box(Modifier.width(2.dp).weight(1f).background(Brush.verticalGradient(listOf(color.copy(alpha = 0.6f), Fluff.Line))))
         }
         Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f).padding(bottom = 10.dp)) {
+        Column(Modifier.weight(1f).padding(bottom = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(type.label, style = MaterialTheme.typography.titleSmall, color = color, modifier = Modifier.weight(1f))
-                Text("${rows.size}", style = MaterialTheme.typography.labelMedium, color = Fluff.TextFaint)
+                Text("$count", style = MaterialTheme.typography.labelMedium, color = Fluff.TextFaint)
             }
             AnimatedVisibility(expanded, enter = expandVertically(Fluff.gentle()) + fadeIn(), exit = shrinkVertically(Fluff.gentle()) + fadeOut()) {
-                Column {
-                    rows.forEach { (name, summary) ->
-                        Column(Modifier.fillMaxWidth().height(46.dp), verticalArrangement = Arrangement.Center) {
-                            Text(name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(summary, style = MaterialTheme.typography.bodySmall, color = Fluff.TextDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                    }
-                }
+                Column(Modifier.padding(top = 4.dp)) { rows() }
             }
         }
+    }
+}
+
+/** A main lift: what to do, what kind of movement it is, and the reasons that matter most. */
+@Composable
+private fun MainExerciseRow(exerciseId: String, summary: String, insights: List<Insight>, onClick: () -> Unit) {
+    val ex = ExerciseLibrary[exerciseId]
+    Column(
+        Modifier.fillMaxWidth().padding(vertical = 2.dp).clip(RoundedCornerShape(14.dp)).clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(PlanText.name(exerciseId), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+            Spacer(Modifier.width(8.dp))
+            ex?.let { MovementTag(it.movementType) }
+            Spacer(Modifier.weight(1f))
+            if (ExerciseVideos[exerciseId] != null) Icon(Icons.Rounded.PlayCircle, "Form video", tint = Fluff.TextFaint, modifier = Modifier.size(20.dp))
+        }
+        Spacer(Modifier.height(2.dp))
+        Text(summary, style = MaterialTheme.typography.labelMedium, color = Fluff.TextDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (insights.isNotEmpty()) Spacer(Modifier.height(4.dp))
+        insights.take(2).forEach { InsightLine(it, maxLines = 1) }
+    }
+}
+
+@Composable
+private fun CompactRow(exerciseId: String, summary: String, onClick: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(role = Role.Button, onClick = onClick).padding(horizontal = 4.dp, vertical = 6.dp),
+    ) {
+        Text(PlanText.name(exerciseId), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(summary, style = MaterialTheme.typography.bodySmall, color = Fluff.TextDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

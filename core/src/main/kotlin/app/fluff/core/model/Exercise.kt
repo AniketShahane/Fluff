@@ -34,6 +34,17 @@ enum class LoadType {
     TIMED,
 }
 
+/** What kind of movement an exercise is, as shown to the user and used for filtering. */
+@Serializable
+enum class MovementType(val label: String, val blurb: String) {
+    COMPOUND("Compound", "Multi-joint lifts that train several muscles at once"),
+    ISOLATION("Isolation", "Single-joint work that targets one muscle"),
+    CORE("Core", "Bracing and trunk control"),
+    CARRY("Carry", "Loaded walks for grip, posture and trunk"),
+    CARDIO("Cardio", "Easy aerobic work"),
+    MOBILITY("Mobility", "Range of motion, activation and stretching"),
+}
+
 /** How taxing an exercise is on the whole system (drives selection on low-readiness days). */
 enum class SystemicCost { LOW, MEDIUM, HIGH }
 
@@ -76,4 +87,14 @@ data class Exercise(
     }
 
     val isLoaded: Boolean get() = loadType != LoadType.TIMED
+
+    val movementType: MovementType
+        get() = when (pattern) {
+            MovementPattern.ISOLATION -> MovementType.ISOLATION
+            MovementPattern.CORE -> MovementType.CORE
+            MovementPattern.CARRY -> MovementType.CARRY
+            MovementPattern.CARDIO -> MovementType.CARDIO
+            MovementPattern.MOBILITY -> MovementType.MOBILITY
+            else -> MovementType.COMPOUND
+        }
 }

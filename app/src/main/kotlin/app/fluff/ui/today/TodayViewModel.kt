@@ -7,6 +7,7 @@ import app.fluff.core.model.Focus
 import app.fluff.core.model.PlanAdjustments
 import app.fluff.core.model.UserProfile
 import app.fluff.core.model.WorkoutPlan
+import app.fluff.core.planner.Insight
 import app.fluff.core.readiness.Readiness
 import app.fluff.data.prefs.AppSettings
 import app.fluff.data.prefs.PreferencesStore
@@ -20,6 +21,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -42,6 +46,8 @@ data class TodayState(
     val syncing: Boolean = false,
     val replanning: Boolean = false,
     val adjustments: PlanAdjustments = PlanAdjustments(),
+    /** Why each main exercise is prescribed the way it is, keyed by exercise id. */
+    val insights: Map<String, List<Insight>> = emptyMap(),
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -74,12 +80,17 @@ class TodayViewModel(
         }
     }
 
+    /** Recomputed whenever the plan changes; cheap, and it keeps the "why" in step with the numbers. */
+    private val insights = perDay.map { it.plan }.distinctUntilChanged().mapLatest { p ->
+        p?.let { engine.insights(it) }.orEmpty()
+    }
+
     val state: StateFlow<TodayState> = combine(
         perDay,
-        combine(prefs.profile, prefs.settings, ::Pair),
+        combine(prefs.profile, prefs.settings, insights, ::Triple),
         combine(engine.status, sync.state, replanning, adjustments) { a, b, c, d -> Quad(a, b, c, d) },
         sessions,
-    ) { pd, (profile, settings), q, (activeId, completed) ->
+    ) { pd, (profile, settings, why), q, (activeId, completed) ->
         TodayState(
             loading = pd.plan == null && pd.readiness == null,
             today = pd.day,
@@ -95,6 +106,7 @@ class TodayViewModel(
             syncing = q.b.running,
             replanning = q.c,
             adjustments = q.d,
+            insights = why,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TodayState())
 

@@ -37,6 +37,7 @@ import app.fluff.core.model.Experience
 import app.fluff.core.model.Limitation
 import app.fluff.core.model.Severity
 import app.fluff.core.model.Sex
+import app.fluff.core.model.MovementEmphasis
 import app.fluff.core.model.TrainingGoal
 import app.fluff.core.model.WeightUnit
 import app.fluff.ui.components.Eyebrow
@@ -69,6 +70,14 @@ fun GoalPicker(value: TrainingGoal, onChange: (TrainingGoal) -> Unit) {
     val emoji = mapOf(TrainingGoal.STRENGTH to "🏋️", TrainingGoal.HYPERTROPHY to "💪", TrainingGoal.GENERAL to "🌿", TrainingGoal.ATHLETIC to "⚡")
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         TrainingGoal.entries.forEach { g -> ChoiceCard(g.label, g.blurb, g == value, { onChange(g) }, leading = emoji[g]) }
+    }
+}
+
+@Composable
+fun EmphasisPicker(value: MovementEmphasis, onChange: (MovementEmphasis) -> Unit) {
+    val emoji = mapOf(MovementEmphasis.COMPOUNDS to "🏗️", MovementEmphasis.BALANCED to "⚖️", MovementEmphasis.MORE_ISOLATION to "🎯")
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        MovementEmphasis.entries.forEach { m -> ChoiceCard(m.label, m.blurb, m == value, { onChange(m) }, leading = emoji[m]) }
     }
 }
 

@@ -4,7 +4,9 @@ import app.fluff.core.library.ExerciseLibrary
 import app.fluff.core.model.BlockType
 import app.fluff.core.model.ExerciseRole
 import app.fluff.core.model.Focus
+import app.fluff.core.model.MovementEmphasis
 import app.fluff.core.model.MovementPattern
+import app.fluff.core.model.MovementType
 import app.fluff.core.model.PlanBlock
 import app.fluff.core.model.PlanSource
 import app.fluff.core.model.PlannedExercise
@@ -80,6 +82,10 @@ class PlanValidator(
                 ex == null -> { warnings += "Dropped unknown exercise '${item.exerciseId}'"; return@mapNotNull null }
                 item.exerciseId !in allowed -> { warnings += "Dropped ${ex.name}: not safe or not available for you"; return@mapNotNull null }
                 block == BlockType.MAIN && item.exerciseId in seen -> return@mapNotNull null
+                block == BlockType.MAIN && profile.movementEmphasis == MovementEmphasis.COMPOUNDS && ex.movementType == MovementType.ISOLATION -> {
+                    warnings += "Dropped ${ex.name}: you prefer compound lifts"
+                    return@mapNotNull null
+                }
             }
             seen += item.exerciseId
             ex!!

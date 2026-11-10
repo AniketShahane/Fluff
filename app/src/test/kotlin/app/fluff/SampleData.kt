@@ -81,8 +81,10 @@ object SampleData {
         readiness(score).copy(epochDay = today.minusDays(back.toLong()).toEpochDay())
     }.reversed()
 
+    fun input(score: Int = 78) = PlannerInput(today, profile, readiness(score), history, Muscle.entries.associateWith { 1.0 })
+    fun insights(plan: app.fluff.core.model.WorkoutPlan, score: Int = 78) = app.fluff.core.planner.PlanInsights.explain(plan, input(score))
     fun plan(score: Int = 78) = WorkoutPlanner().plan(
-        PlannerInput(today, profile, readiness(score), history, Muscle.entries.associateWith { 1.0 }),
+        input(score),
     )
 
     val goals = listOf(Goal(1, "back_squat", 150.0, LocalDateSerial.of(today.plusWeeks(16)), startE1rmKg = 116.0, createdEpochDay = today.minusWeeks(6).toEpochDay()))

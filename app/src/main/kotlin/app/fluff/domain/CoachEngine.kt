@@ -8,6 +8,8 @@ import app.fluff.core.model.PlanAdjustments
 import app.fluff.core.model.PlanSource
 import app.fluff.core.model.UserProfile
 import app.fluff.core.model.WorkoutPlan
+import app.fluff.core.planner.Insight
+import app.fluff.core.planner.PlanInsights
 import app.fluff.core.planner.PlannerInput
 import app.fluff.core.planner.WorkoutPlanner
 import app.fluff.core.readiness.MuscleFatigue
@@ -90,7 +92,12 @@ class CoachEngine(
     fun observeCheckIn(day: LocalDate = today()): Flow<CheckIn?> =
         db.checkIns().observe(day.toEpochDay()).map { e -> e?.let { CheckIn(it.sleepQuality, it.energy, it.soreness, it.stress) } }
 
-    private suspend fun gather(adjustments: PlanAdjustments): DayContext {
+    private suspend fun gather(adjustments: PlanAdjustments): DayContext = compute(adjustments).also { ctx ->
+        db.readiness().upsert(ReadinessEntity(ctx.today.toEpochDay(), json.encodeToString(Readiness.serializer(), ctx.readiness), clock.millis()))
+    }
+
+    /** Reads everything a plan depends on, without writing anything. */
+    private suspend fun compute(adjustments: PlanAdjustments): DayContext {
         val today = today()
         val profile = prefs.currentProfile()
         val history = training.history(profile.bodyWeightKg)
@@ -101,7 +108,6 @@ class CoachEngine(
         val checkIn = db.checkIns().get(today.toEpochDay())?.let { CheckIn(it.sleepQuality, it.energy, it.soreness, it.stress) }
         val load = TrainingLoad.snapshot(today, history.sessions, activities, zone)
         val readiness = ReadinessEngine.compute(today, todaySignals, signals, checkIn, load)
-        db.readiness().upsert(ReadinessEntity(today.toEpochDay(), json.encodeToString(Readiness.serializer(), readiness), clock.millis()))
         val freshness = MuscleFatigue.freshness(now, history.sessions, activities)
         return DayContext(today, profile, readiness, PlannerInput(today, profile, readiness, history, freshness, adjustments))
     }
@@ -193,4 +199,8 @@ class CoachEngine(
     }
 
     fun currentPlanSource(plan: WorkoutPlan?): PlanSource? = plan?.source
+
+    /** A few concrete reasons behind each main exercise in [plan] (progression, records, recovery). */
+    suspend fun insights(plan: WorkoutPlan): Map<String, List<Insight>> =
+        runCatching { PlanInsights.explain(plan, compute(PlanAdjustments()).input) }.getOrDefault(emptyMap())
 }
