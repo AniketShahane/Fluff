@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Dumbbell: two rounded plates joined by a bar, sitting inside a soft ring. -->
+    <path android:strokeColor="#C8F560" android:strokeWidth="3.5" android:fillColor="#00000000"
+        android:pathData="M54,30a24,24 0,1 1,0 48a24,24 0,1 1,0 -48z" />
+    <path android:fillColor="#C8F560" android:pathData="M36,46h6a3,3 0,0 1,3 3v10a3,3 0,0 1,-3 3h-6a3,3 0,0 1,-3 -3v-10a3,3 0,0 1,3 -3z" />
+    <path android:fillColor="#C8F560" android:pathData="M66,46h6a3,3 0,0 1,3 3v10a3,3 0,0 1,-3 3h-6a3,3 0,0 1,-3 -3v-10a3,3 0,0 1,3 -3z" />
+    <path android:fillColor="#C8F560" android:pathData="M45,52h18v4h-18z" />
+</vector>

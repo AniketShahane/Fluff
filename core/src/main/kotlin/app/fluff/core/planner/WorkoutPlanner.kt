@@ -596,7 +596,7 @@ class WorkoutPlanner {
         val blocks = listOf(warmup, main, cooldown)
         val r = ctx.input.readiness
         ctx.rationale += "Readiness ${r.score} (${ctx.band.label}): today is about recovery, not load."
-        r.factors.firstOrNull { it.impact < 0 }?.let { ctx.rationale += "Biggest drag: ${it.title.lowercase()} (${it.detail.lowercase()})." }
+        r.factors.firstOrNull { it.impact < 0 }?.let { ctx.rationale += "Biggest drag: ${it.title} (${it.detail.replaceFirstChar { c -> c.lowercase() }})." }
         ctx.rationale += "Easy aerobic work and mobility speed recovery without adding fatigue."
         return WorkoutPlan(
             epochDay = ctx.input.today.toEpochDay(),
@@ -623,8 +623,8 @@ class WorkoutPlanner {
         ctx.rationale += "Readiness ${r.score} (${ctx.band.label}): $volumeNote, effort capped at RPE ${fmt(rx.rpeCap)}."
         val shift = ctx.input.adjustments.intensityShift
         if (shift != 0) ctx.rationale += if (shift > 0) "You asked to push harder, so the cap moved up a notch." else "You asked to go easier, so the cap moved down a notch."
-        r.factors.firstOrNull { it.impact <= -5 }?.let { ctx.rationale += "Watching: ${it.title} — ${it.detail.replaceFirstChar { c -> c.lowercase() }}." }
-        r.factors.firstOrNull { it.impact >= 5 }?.let { ctx.rationale += "Working for you: ${it.title} — ${it.detail.replaceFirstChar { c -> c.lowercase() }}." }
+        r.factors.firstOrNull { it.impact <= -5 }?.let { ctx.rationale += "Watching: ${it.title} (${it.detail.replaceFirstChar { c -> c.lowercase() }})." }
+        r.factors.firstOrNull { it.impact >= 5 }?.let { ctx.rationale += "Working for you: ${it.title} (${it.detail.replaceFirstChar { c -> c.lowercase() }})." }
 
         val fresh = (focusFreshness(focus, ctx.input.freshness) * 100).roundToInt()
         val tired = Muscle.entries.filter { (ctx.input.freshness[it] ?: 1.0) < 0.5 }
