@@ -83,7 +83,7 @@ data class ProfileActions(
     val syncNow: () -> Unit = {},
 )
 
-private enum class Editor { NAME, GOAL, EXPERIENCE, SCHEDULE, EQUIPMENT, LIMITS, ACTIVITIES, BODY, CLAUDE, WHOOP }
+private enum class Editor { NAME, GOAL, EMPHASIS, EXPERIENCE, SCHEDULE, EQUIPMENT, LIMITS, ACTIVITIES, BODY, CLAUDE, WHOOP }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -182,6 +182,7 @@ fun ProfileScreen(state: ProfileState, actions: ProfileActions, modifier: Modifi
         item {
             FluffCard(padding = PaddingValues(vertical = 6.dp)) {
                 SettingRow("Goal", p.goal.label) { editor = Editor.GOAL }
+                SettingRow("Movement emphasis", p.movementEmphasis.label) { editor = Editor.EMPHASIS }
                 SettingRow("Experience", p.experience.label) { editor = Editor.EXPERIENCE }
                 SettingRow("Schedule", "${p.daysPerWeek} days · ${p.sessionMinutes} min") { editor = Editor.SCHEDULE }
                 SettingRow("Equipment", equipmentLabel(p.equipment)) { editor = Editor.EQUIPMENT }
@@ -210,6 +211,11 @@ fun ProfileScreen(state: ProfileState, actions: ProfileActions, modifier: Modifi
                 when (e) {
                     Editor.NAME -> TextEditor("Your name", p.name, KeyboardCapitalization.Words) { v -> actions.update { it.copy(name = v.trim()) }; editor = null }
                     Editor.GOAL -> { SheetTitle("Goal"); GoalPicker(p.goal) { g -> actions.updateAndReplan { it.copy(goal = g) } } }
+                    Editor.EMPHASIS -> {
+                        SheetTitle("Movement emphasis")
+                        Text("Compound lifts train several muscles at once (squat, bench, row). Isolation moves train one (curls, raises). Fluff tags every exercise so you can see which is which.", style = MaterialTheme.typography.bodyMedium, color = Fluff.TextDim, modifier = Modifier.padding(bottom = 14.dp))
+                        EmphasisPicker(p.movementEmphasis) { m -> actions.updateAndReplan { it.copy(movementEmphasis = m) } }
+                    }
                     Editor.EXPERIENCE -> { SheetTitle("Experience"); ExperiencePicker(p.experience) { x -> actions.updateAndReplan { it.copy(experience = x) } } }
                     Editor.SCHEDULE -> { SheetTitle("Schedule"); ScheduleEditor(p.daysPerWeek, p.sessionMinutes, { d -> actions.updateAndReplan { it.copy(daysPerWeek = d) } }, { m -> actions.updateAndReplan { it.copy(sessionMinutes = m) } }) }
                     Editor.EQUIPMENT -> { SheetTitle("Equipment"); EquipmentEditor(p.equipment) { eq -> actions.updateAndReplan { it.copy(equipment = eq) } } }

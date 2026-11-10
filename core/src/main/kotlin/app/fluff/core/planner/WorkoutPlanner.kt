@@ -9,6 +9,7 @@ import app.fluff.core.model.ExerciseRole
 import app.fluff.core.model.Experience
 import app.fluff.core.model.Focus
 import app.fluff.core.model.LoadType
+import app.fluff.core.model.MovementEmphasis
 import app.fluff.core.model.MovementPattern
 import app.fluff.core.model.MovementPattern.CARRY
 import app.fluff.core.model.MovementPattern.CORE
@@ -165,7 +166,51 @@ class WorkoutPlanner {
         )
     }
 
-    private fun slotsFor(focus: Focus, input: PlannerInput): List<Slot> {
+    private fun slotsFor(focus: Focus, input: PlannerInput): List<Slot> =
+        applyEmphasis(baseSlots(focus, input), focus, input.profile.movementEmphasis)
+
+    /** Compound alternatives for isolation targets, used when the user prefers compound lifts. */
+    private val compoundFor: Map<Muscle, MovementPattern> = mapOf(
+        Muscle.SIDE_DELTS to VERTICAL_PUSH,
+        Muscle.FRONT_DELTS to VERTICAL_PUSH,
+        Muscle.REAR_DELTS to HORIZONTAL_PULL,
+        Muscle.BICEPS to VERTICAL_PULL,
+        Muscle.TRICEPS to HORIZONTAL_PUSH,
+        Muscle.HAMSTRINGS to HINGE,
+        Muscle.QUADS to LUNGE,
+        Muscle.CALVES to LUNGE,
+    )
+
+    /** Extra single-joint work per focus when the user wants more isolation. */
+    private val extraIsolation: Map<Focus, Set<Muscle>> = mapOf(
+        Focus.FULL_BODY to setOf(Muscle.BICEPS, Muscle.TRICEPS, Muscle.SIDE_DELTS),
+        Focus.UPPER to setOf(Muscle.SIDE_DELTS, Muscle.TRICEPS, Muscle.BICEPS),
+        Focus.LOWER to setOf(Muscle.CALVES, Muscle.HAMSTRINGS, Muscle.QUADS),
+        Focus.PUSH to setOf(Muscle.TRICEPS, Muscle.SIDE_DELTS),
+        Focus.PULL to setOf(Muscle.BICEPS, Muscle.REAR_DELTS),
+        Focus.LEGS to setOf(Muscle.QUADS, Muscle.CALVES),
+    )
+
+    private fun applyEmphasis(slots: List<Slot>, focus: Focus, emphasis: MovementEmphasis): List<Slot> = when (emphasis) {
+        MovementEmphasis.BALANCED -> slots
+        MovementEmphasis.COMPOUNDS -> slots.map { slot ->
+            if (MovementPattern.ISOLATION !in slot.patterns) return@map slot
+            val patterns = slot.isolationTargets.mapNotNull { compoundFor[it] }.distinct().ifEmpty { listOf(LUNGE) }
+            Slot(ExerciseRole.ACCESSORY, patterns)
+        }
+        MovementEmphasis.MORE_ISOLATION -> {
+            val targets = extraIsolation[focus].orEmpty()
+            if (targets.isEmpty()) {
+                slots
+            } else {
+                // Extra isolation goes after the compounds, before core work.
+                val coreAt = slots.indexOfFirst { it.role == ExerciseRole.CORE }.let { if (it < 0) slots.size else it }
+                slots.take(coreAt) + Slot(ExerciseRole.ACCESSORY, listOf(MovementPattern.ISOLATION), targets) + slots.drop(coreAt)
+            }
+        }
+    }
+
+    private fun baseSlots(focus: Focus, input: PlannerInput): List<Slot> {
         val f = input.freshness
         fun fresher(a: MovementPattern, b: MovementPattern): Pair<MovementPattern, MovementPattern> {
             val sa = patternFreshness(a, f) + recencyBonus(a, input)
@@ -632,6 +677,11 @@ class WorkoutPlanner {
             ctx.rationale += "${focus.label} today: target muscles are $fresh% fresh, while ${tired.take(3).joinToString(", ") { it.label.lowercase() }} are still recovering."
         } else if (ctx.input.adjustments.focusOverride == null && splitFor(ctx.profile.daysPerWeek).size > 1) {
             ctx.rationale += "${focus.label} is most due and fully recovered ($fresh% fresh)."
+        }
+        when (ctx.profile.movementEmphasis) {
+            MovementEmphasis.COMPOUNDS -> ctx.rationale += "Compounds first, as you asked: isolation slots became multi-joint accessories."
+            MovementEmphasis.MORE_ISOLATION -> ctx.rationale += "Extra isolation work after the compounds, as you asked."
+            MovementEmphasis.BALANCED -> Unit
         }
         if (ctx.profile.limitations.isNotEmpty()) {
             ctx.rationale += "Working around your ${ctx.profile.limitations.joinToString(" and ") { "${it.severity.label.lowercase()} ${it.region.label.lowercase()}" }} limitation: risky variations are excluded."

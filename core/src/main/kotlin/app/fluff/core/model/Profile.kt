@@ -57,6 +57,14 @@ enum class ActivityType(val label: String, val emoji: String, val defaultIntensi
     }
 }
 
+/** How the planner balances multi-joint and single-joint work. */
+@Serializable
+enum class MovementEmphasis(val label: String, val blurb: String) {
+    COMPOUNDS("Compounds first", "Big multi-joint lifts only; isolation slots become compound accessories"),
+    BALANCED("Balanced", "Compound lifts plus a little isolation for arms, delts and legs"),
+    MORE_ISOLATION("More isolation", "Compounds plus extra single-joint work to bring up lagging muscles"),
+}
+
 @Serializable
 data class ActivityHabit(val type: ActivityType, val sessionsPerWeek: Int)
 
@@ -75,6 +83,7 @@ data class UserProfile(
     val limitations: List<Limitation> = emptyList(),
     val activities: List<ActivityHabit> = emptyList(),
     val unit: WeightUnit = WeightUnit.KG,
+    val movementEmphasis: MovementEmphasis = MovementEmphasis.BALANCED,
     val onboarded: Boolean = false,
 ) {
     init {

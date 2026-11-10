@@ -24,8 +24,15 @@ Claude coach refines the plan; an on-device validator always has the final say o
 - **Claude coach (optional).** With your own Anthropic API key, Claude redesigns the session using
   structured outputs constrained to Fluff's exercise library. Fluff validates the result (volume,
   RPE caps, contraindications) and falls back to the engine plan if anything is off.
+- **Why each lift is there.** Every main lift shows short, specific reasons: the change since last
+  time, record attempts, effort caps, recovering muscles and joint-friendly picks.
+- **Form videos.** 53 strength and core exercises have a hand-checked YouTube Short that plays inside
+  the app (warm-up and stretch drills link to a YouTube search instead).
+- **Movement types.** Every exercise is tagged compound, isolation, core, carry, cardio or mobility.
+  Pick "Compounds first", "Balanced" or "More isolation" in Profile and the planner follows it.
 - **Live workout.** Big steppers, RPE picker, rest timer, set-by-set autoregulation (a set that
-  felt much easier or harder nudges the next sets), swap/skip/add, PR celebrations, screen kept on.
+  felt much easier or harder nudges the next sets), swap/skip, add any exercise mid-session, edit a
+  logged set, log a workout from scratch, PR celebrations, screen kept on.
 - **Progress.** Strength score vs bodyweight standards, a radar across eight movement patterns,
   strength for each of your sports with its limiting pattern, e1RM trends with goal projections,
   weekly volume per muscle, and a consistency heatmap.
@@ -58,3 +65,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
 ./gradlew :core:test :app:testDebugUnitTest   # engine, repository, WHOOP client, coach engine, screenshots
 ./gradlew :app:recordRoborazziDebug           # refresh app/screenshots
 ```
+
+## Fonts
+
+Inter and Archivo (variable fonts from Google Fonts, Latin subset) under the SIL Open Font License.
+The licences ship in `app/src/main/assets/licenses/`.

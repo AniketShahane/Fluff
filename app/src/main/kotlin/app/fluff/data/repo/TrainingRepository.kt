@@ -7,6 +7,7 @@ import app.fluff.core.model.BlockType
 import app.fluff.core.model.Goal
 import app.fluff.core.model.Muscle
 import app.fluff.core.model.SessionRecord
+import app.fluff.core.model.PlannedSet
 import app.fluff.core.model.SetKind
 import app.fluff.core.model.WorkoutPlan
 import app.fluff.core.progress.Loads
@@ -88,6 +89,32 @@ class TrainingRepository(
 
     suspend fun completeSet(set: SetEntity, weightKg: Double?, reps: Int?, rpe: Double?, durationSec: Int?) {
         sessions.updateSet(set.copy(weightKg = weightKg, reps = reps, rpe = rpe, durationSec = durationSec, completedAt = clock.millis(), skipped = false))
+    }
+
+    /** Corrects a set that was already logged, keeping when it was done. */
+    suspend fun editSet(set: SetEntity, weightKg: Double?, reps: Int?, rpe: Double?, durationSec: Int?) {
+        sessions.updateSet(set.copy(weightKg = weightKg, reps = reps, rpe = rpe, durationSec = durationSec, completedAt = set.completedAt ?: clock.millis(), skipped = false))
+    }
+
+    /**
+     * Adds an exercise to the end of the main block of an active session (before the cool-down)
+     * and returns the id of its first set.
+     */
+    suspend fun addExercise(sessionId: Long, exerciseId: String, sets: List<PlannedSet>): Long? = db.withTransaction {
+        val s = sessions.get(sessionId) ?: return@withTransaction null
+        val mainOrders = s.sets.filter { it.block == BlockType.MAIN.name }.map { it.exerciseOrder }
+        val warmOrders = s.sets.filter { it.block == BlockType.WARMUP.name }.map { it.exerciseOrder }
+        val newOrder = (mainOrders.maxOrNull() ?: warmOrders.maxOrNull() ?: -1) + 1
+        // Make room: everything after the main block (the cool-down) moves down one place.
+        s.sets.filter { it.exerciseOrder >= newOrder }.forEach { sessions.updateSet(it.copy(exerciseOrder = it.exerciseOrder + 1)) }
+        val rows = sets.mapIndexed { i, ps ->
+            SetEntity(
+                sessionId = sessionId, exerciseId = exerciseId, block = BlockType.MAIN.name, exerciseOrder = newOrder, setIndex = i,
+                kind = ps.kind.name, targetReps = ps.reps, targetDurationSec = ps.durationSec,
+                targetWeightKg = ps.weightKg, targetRpe = ps.rpe, restSec = ps.restSec,
+            )
+        }
+        sessions.insertSets(rows).firstOrNull()
     }
 
     /** Updates prescriptions (e.g. auto-adjusted weights) for sets not yet done. */

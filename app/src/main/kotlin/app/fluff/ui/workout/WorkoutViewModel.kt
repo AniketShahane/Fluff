@@ -6,9 +6,11 @@ import app.fluff.core.library.ExerciseLibrary
 import app.fluff.core.model.BlockType
 import app.fluff.core.model.Exercise
 import app.fluff.core.model.LoggedSet
+import app.fluff.core.model.PlannedSet
 import app.fluff.core.model.SetKind
 import app.fluff.core.model.UserProfile
 import app.fluff.core.model.WorkoutPlan
+import app.fluff.core.planner.Insight
 import app.fluff.core.planner.LoadAdvisor
 import app.fluff.core.progress.Loads
 import app.fluff.core.progress.TrainingHistory
@@ -69,12 +71,17 @@ data class WorkoutState(
     val toast: String? = null,
     val coachNote: String? = null,
     val finishing: Boolean = false,
+    /** Set being corrected after it was logged, if any. */
+    val editingSetId: Long? = null,
+    /** Why each main exercise is prescribed the way it is, keyed by exercise id. */
+    val insights: Map<String, List<Insight>> = emptyMap(),
 ) {
     val allSets: List<SetEntity> get() = groups.flatMap { it.sets }
     val doneCount: Int get() = allSets.count { it.completedAt != null || it.skipped }
     val totalCount: Int get() = allSets.size
     val loggedCount: Int get() = allSets.count { it.completedAt != null }
     val current: SetEntity? get() = allSets.firstOrNull { it.id == currentSetId }
+    val editing: Boolean get() = editingSetId != null && editingSetId == currentSetId
     val currentGroup: ExerciseGroup? get() = groups.firstOrNull { g -> g.sets.any { it.id == currentSetId } }
 }
 
@@ -94,6 +101,8 @@ class WorkoutViewModel(
     private val pr = MutableStateFlow<PrEvent?>(null)
     private val toast = MutableStateFlow<String?>(null)
     private val finishing = MutableStateFlow(false)
+    private val editing = MutableStateFlow<Long?>(null)
+    private val insights = MutableStateFlow<Map<String, List<Insight>>>(emptyMap())
 
     private var history: TrainingHistory? = null
     private val bestE1rm = mutableMapOf<String, Double?>()
@@ -104,12 +113,14 @@ class WorkoutViewModel(
         session,
         combine(prefs.profile, prefs.settings, ::Pair),
         combine(selected, draft, rest, ::Triple),
-        combine(pr, toast, finishing, ::Triple),
-    ) { s, (profile, settings), (sel, d, r), (p, t, f) ->
-        if (s == null) return@combine WorkoutState(loading = false, profile = profile, settings = settings, finishing = f)
+        combine(pr, toast, finishing, editing, insights) { p, t, f, e, i -> Extras(p, t, f, e, i) },
+    ) { s, (profile, settings), (sel, d, r), x ->
+        if (s == null) return@combine WorkoutState(loading = false, profile = profile, settings = settings, finishing = x.finishing)
         val groups = group(s)
         val all = groups.flatMap { it.sets }
-        val current = all.firstOrNull { it.id == sel && it.completedAt == null && !it.skipped }
+        val editingSet = all.firstOrNull { it.id == x.editing && it.completedAt != null }
+        val current = editingSet
+            ?: all.firstOrNull { it.id == sel && it.completedAt == null && !it.skipped }
             ?: all.firstOrNull { it.completedAt == null && !it.skipped }
         val plan = s.session.planJson?.let { runCatching { json.decodeFromString(WorkoutPlan.serializer(), it) }.getOrNull() }
         WorkoutState(
@@ -123,19 +134,23 @@ class WorkoutViewModel(
             rest = r,
             profile = profile,
             settings = settings,
-            pr = p,
-            toast = t,
+            pr = x.pr,
+            toast = x.toast,
             coachNote = plan?.coachNote,
-            finishing = f,
+            finishing = x.finishing,
+            editingSetId = editingSet?.id,
+            insights = x.insights,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), WorkoutState())
 
     /** Starts today's plan (or resumes the active session). */
-    fun begin() {
+    fun begin(freestyle: Boolean = false) {
         if (sessionId.value != null) return
         viewModelScope.launch {
             val active = training.activeSession.first()
-            val id = active?.session?.id ?: run {
+            val id = active?.session?.id ?: if (freestyle) {
+                training.start(freestylePlan())
+            } else {
                 engine.ensureTodayPlan()
                 val plan = engine.observePlan().first() ?: return@launch
                 training.start(plan)
@@ -143,8 +158,23 @@ class WorkoutViewModel(
             val profile = prefs.currentProfile()
             history = training.history(profile.bodyWeightKg)
             sessionId.value = id
+            training.session(id)?.session?.planJson
+                ?.let { runCatching { json.decodeFromString(WorkoutPlan.serializer(), it) }.getOrNull() }
+                ?.let { insights.value = engine.insights(it) }
         }
     }
+
+    /** An empty session the user fills exercise by exercise (their own programme, a class, a quick log). */
+    private fun freestylePlan() = WorkoutPlan(
+        epochDay = engine.today().toEpochDay(),
+        focus = app.fluff.core.model.Focus.FULL_BODY,
+        title = "Your workout",
+        rationale = emptyList(),
+        blocks = emptyList(),
+        estimatedMinutes = 0,
+        source = app.fluff.core.model.PlanSource.ENGINE,
+        readinessScore = null,
+    )
 
     private fun group(s: SessionWithSets): List<ExerciseGroup> =
         s.sets.groupBy { it.exerciseOrder }.toSortedMap().map { (order, sets) ->
@@ -170,6 +200,18 @@ class WorkoutViewModel(
 
     fun select(setId: Long) {
         selected.value = setId
+        editing.value = null
+        draft.value = null
+    }
+
+    /** Opens a logged set for correction; logging then saves the new values in place. */
+    fun edit(setId: Long) {
+        editing.value = setId
+        draft.value = null
+    }
+
+    fun cancelEdit() {
+        editing.value = null
         draft.value = null
     }
 
@@ -199,6 +241,15 @@ class WorkoutViewModel(
         val profile = st.profile
         val ex = st.currentGroup?.exercise
         val kg = d.weight?.let { profile.unit.toKg(it) }
+        if (st.editing) {
+            viewModelScope.launch {
+                training.editSet(set, kg ?: if (ex?.isLoaded == true) 0.0 else null, d.reps, d.rpe, d.durationSec)
+                editing.value = null
+                draft.value = null
+                toast.value = "Set updated"
+            }
+            return
+        }
         viewModelScope.launch {
             training.completeSet(set, kg ?: if (ex?.isLoaded == true) 0.0 else null, d.reps, d.rpe, d.durationSec)
             selected.value = null
@@ -252,7 +303,44 @@ class WorkoutViewModel(
     fun restAdd(seconds: Int) = rest.update { r -> r?.copy(endsAtMs = r.endsAtMs + seconds * 1000L, totalSec = r.totalSec + seconds) }
     fun restSkip() { rest.value = null }
 
-    fun undo(set: SetEntity) = viewModelScope.launch { training.undoSet(set); selected.value = set.id; draft.value = null }
+    fun undo(set: SetEntity) = viewModelScope.launch { training.undoSet(set); editing.value = null; selected.value = set.id; draft.value = null }
+
+    /** Every exercise the user can do with their equipment and limitations, for adding mid-workout. */
+    fun library(): List<Exercise> {
+        val profile = state.value.profile
+        return ExerciseLibrary.all.filter { it.isAvailableWith(profile.equipment) && !it.isContraindicatedFor(profile.limitations) }
+            .sortedWith(compareByDescending<Exercise> { history?.familiarity(it.id) ?: 0 }.thenBy { it.name })
+    }
+
+    /** Adds an exercise after the current main work with a sensible goal-based prescription. */
+    fun addExercise(ex: Exercise) {
+        val id = state.value.sessionId ?: return
+        val profile = state.value.profile
+        viewModelScope.launch {
+            val sets = prescriptionFor(ex, profile)
+            val first = training.addExercise(id, ex.id, sets) ?: return@launch
+            editing.value = null
+            selected.value = first
+            draft.value = null
+            toast.value = "Added ${ex.name}"
+        }
+    }
+
+    private fun prescriptionFor(ex: Exercise, profile: UserProfile): List<PlannedSet> {
+        val timed = !ex.isLoaded || ex.pattern == app.fluff.core.model.MovementPattern.CARRY
+        if (timed) {
+            val duration = ex.defaultDurationSec ?: if (ex.defaultReps == null) 30 else null
+            return List(3) { PlannedSet(SetKind.WORKING, reps = ex.defaultReps.takeIf { duration == null }, durationSec = duration, restSec = 60) }
+        }
+        val reps = when (profile.goal) {
+            app.fluff.core.model.TrainingGoal.STRENGTH, app.fluff.core.model.TrainingGoal.ATHLETIC -> if (ex.movementType == app.fluff.core.model.MovementType.ISOLATION) 10 else 6
+            else -> if (ex.movementType == app.fluff.core.model.MovementType.ISOLATION) 12 else 10
+        }
+        val rpe = 8.0
+        val kg = history?.let { LoadAdvisor(it, profile, LocalDate.now()).suggest(ex, reps, rpe).loggedKg }
+        val rest = if (ex.movementType == app.fluff.core.model.MovementType.COMPOUND) 120 else 75
+        return List(3) { PlannedSet(SetKind.WORKING, reps, null, kg, rpe, rest) }
+    }
     fun skip(set: SetEntity) = viewModelScope.launch { training.skipSet(set); draft.value = null }
     fun skipExercise(group: ExerciseGroup) = viewModelScope.launch {
         group.sets.filter { it.completedAt == null && !it.skipped }.forEach { training.skipSet(it) }
@@ -302,6 +390,14 @@ class WorkoutViewModel(
     }
 
     private fun round1(v: Double) = (v * 10).roundToInt() / 10.0
+
+    private data class Extras(
+        val pr: PrEvent?,
+        val toast: String?,
+        val finishing: Boolean,
+        val editing: Long?,
+        val insights: Map<String, List<Insight>>,
+    )
 }
 
 fun SetEntity.isDone() = completedAt != null

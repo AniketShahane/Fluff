@@ -67,7 +67,7 @@ Design today's session:
 - Favour muscles with high freshness. Avoid loading muscles below 0.5 freshness unless the baseline does.
 - Account for the other activities: hard runs, rides, matches or climbs from the last 48 hours count as training for the muscles they load.
 - Always include a real warm-up (general cardio, dynamic mobility for the regions being trained and any limited regions, activation) and a cool-down (easy flush, static stretches for the muscles trained, breathing).
-- Main work: 3 to 6 exercises, compound movements first. Use kind "top" for a single heavy top set, "backoff" for the sets after it, "working" otherwise, and "warmup" for every set in the warm-up and cool-down blocks.
+- Main work: 3 to 6 exercises, compound movements first. Honour profile.movement_emphasis: "compounds" means no single-joint isolation exercises in the main block; "more_isolation" means add one or two extra isolation exercises after the compounds. Use kind "top" for a single heavy top set, "backoff" for the sets after it, "working" otherwise, and "warmup" for every set in the warm-up and cool-down blocks.
 - For rep-based sets set duration_sec to 0. For timed holds, carries, cardio and stretches set reps to 0 and give duration_sec. Use rpe 0 for warm-up, mobility, stretch and cool-down items.
 - Do not choose weights: Fluff calculates loads from the athlete's history using your reps and RPE.
 - Fit the whole session, including rests, inside time_budget_minutes.
@@ -141,6 +141,7 @@ Return only the JSON object described by the schema."""
                 put("sex", profile.sex.name.lowercase())
                 put("bodyweight_kg", profile.bodyWeightKg)
                 put("days_per_week", profile.daysPerWeek)
+                put("movement_emphasis", profile.movementEmphasis.name.lowercase())
                 putJsonArray("limitations") { profile.limitations.forEach { add("${it.severity.name.lowercase()} ${it.region.name.lowercase()}${if (it.note.isNotBlank()) " (${it.note})" else ""}") } }
                 putJsonArray("other_activities") { profile.activities.forEach { add("${it.type.label}: ${it.sessionsPerWeek}x/week") } }
             }

@@ -94,7 +94,7 @@ import kotlinx.serialization.Serializable
 @Serializable object ProgressRoute
 @Serializable object HistoryRoute
 @Serializable object ProfileRoute
-@Serializable object WorkoutRoute
+@Serializable data class WorkoutRoute(val freestyle: Boolean = false)
 @Serializable object OnboardingRoute
 @Serializable data class SummaryRoute(val sessionId: Long)
 @Serializable data class SessionRoute(val sessionId: Long)
@@ -142,7 +142,8 @@ fun FluffRoot(onboarded: Boolean) {
                     state,
                     TodayActions(
                         refresh = vm::refresh, saveCheckIn = { vm.saveCheckIn(it) },
-                        start = { nav.navigate(WorkoutRoute) }, resume = { nav.navigate(WorkoutRoute) },
+                        start = { nav.navigate(WorkoutRoute()) }, resume = { nav.navigate(WorkoutRoute()) },
+                        startFreestyle = { nav.navigate(WorkoutRoute(freestyle = true)) },
                         openSummary = { nav.navigate(SessionRoute(it)) },
                         shorter = vm::shorter, longer = vm::longer, easier = vm::easier, harder = vm::harder,
                         shuffle = vm::shuffle, focus = vm::focus, reset = vm::reset,
@@ -181,9 +182,10 @@ fun FluffRoot(onboarded: Boolean) {
                 enterTransition = { slideInVertically(Fluff.gentle()) { it } + fadeIn() },
                 exitTransition = { fadeOut(tween(200)) },
                 popExitTransition = { slideOutVertically(tween(280)) { it } + fadeOut() },
-            ) {
+            ) { e ->
                 val vm = fluffViewModel { WorkoutViewModel(it.training, it.engine, it.prefs, it.finisher, it.json) }
-                LaunchedEffect(Unit) { vm.begin() }
+                val freestyle = e.toRoute<WorkoutRoute>().freestyle
+                LaunchedEffect(Unit) { vm.begin(freestyle) }
                 val state by vm.state.collectAsStateWithLifecycle()
                 WorkoutScreen(
                     state,
@@ -193,9 +195,10 @@ fun FluffRoot(onboarded: Boolean) {
                         log = vm::log, undo = { vm.undo(it) }, skip = { vm.skip(it) }, skipExercise = { vm.skipExercise(it) },
                         addSet = { vm.addSet(it) }, alternatives = vm::alternatives, swap = { g, e -> vm.swap(g, e) },
                         restAdd = vm::restAdd, restSkip = vm::restSkip,
-                        finish = { r, n -> vm.finish(r, n) { id -> nav.navigate(SummaryRoute(id)) { popUpTo(WorkoutRoute) { inclusive = true } } } },
+                        finish = { r, n -> vm.finish(r, n) { id -> nav.navigate(SummaryRoute(id)) { popUpTo<WorkoutRoute> { inclusive = true } } } },
                         discard = { vm.discard { nav.popBackStack() } },
                         consumePr = vm::consumePr, consumeToast = vm::consumeToast,
+                        edit = vm::edit, cancelEdit = vm::cancelEdit, library = vm::library, addExercise = vm::addExercise,
                     ),
                 )
             }
