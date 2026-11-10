@@ -156,10 +156,11 @@ private fun ActivityRow(item: TimelineItem.Activity, state: HistoryState, modifi
     val a = item.record
     val content = @Composable {
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Fluff.Ink).padding(horizontal = 16.dp, vertical = 12.dp),
+            // Same padding and badge size as LiftRow so text columns line up down the timeline.
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Fluff.Ink).padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Fluff.Sky.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(Fluff.Sky.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
                 Text(a.type.emoji, style = MaterialTheme.typography.titleLarge)
             }
             Spacer(Modifier.width(14.dp))
@@ -167,6 +168,7 @@ private fun ActivityRow(item: TimelineItem.Activity, state: HistoryState, modifi
                 Text(a.name?.takeIf { it.isNotBlank() } ?: a.type.label, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text("${Fmt.relativeDay(item.date, state.today)} · ${Fmt.minutes(a.durationMinutes.toInt())} · ${a.source.label}", style = MaterialTheme.typography.bodySmall, color = Fluff.TextFaint)
             }
+            Spacer(Modifier.width(8.dp))
             Text("${a.effectiveIntensity.toInt()}/10", style = MaterialTheme.typography.labelMedium, color = Fluff.Sky)
         }
     }
@@ -263,14 +265,16 @@ fun SessionDetailScreen(session: SessionWithSets?, summary: WorkoutSummary?, pro
             val inBlock = groups.filter { it.first().block == bt.name }
             if (inBlock.isEmpty()) return@forEach
             item(key = bt.name) {
-                FluffCard {
+                FluffCard(Modifier.fillMaxWidth()) {
                     Eyebrow(bt.label)
                     inBlock.forEach { sets ->
                         Spacer(Modifier.height(10.dp))
                         Text(PlanText.name(sets.first().exerciseId), style = MaterialTheme.typography.titleSmall)
+                        var n = 0
                         sets.sortedBy { it.setIndex }.forEach { st ->
-                            Row(Modifier.padding(top = 2.dp)) {
-                                Text(if (st.kind == SetKind.WARMUP.name) "W" else "•", color = Fluff.TextFaint, modifier = Modifier.width(18.dp))
+                            val label = if (st.kind == SetKind.WARMUP.name) "W" else "${++n}"
+                            Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(label, style = MaterialTheme.typography.labelMedium, color = Fluff.TextFaint, modifier = Modifier.width(22.dp))
                                 Text(
                                     listOfNotNull(
                                         st.weightKg?.takeIf { it > 0 }?.let { Fmt.weightWithUnit(it, unit) },

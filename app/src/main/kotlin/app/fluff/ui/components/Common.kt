@@ -29,6 +29,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -136,18 +140,24 @@ fun Pill(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         if (icon != null) Icon(icon, null, Modifier.size(16.dp), tint = fg)
-        Text(text, style = MaterialTheme.typography.labelLarge, color = fg)
+        // Pills never wrap: a wrapped chip reads as broken. Callers that may run out of room use FlowRow.
+        Text(text, style = MaterialTheme.typography.labelLarge, color = fg, maxLines = 1, softWrap = false)
     }
 }
 
 @Composable
 fun StatTile(label: String, value: String, modifier: Modifier = Modifier, unit: String? = null, accent: Color = Fluff.Text, caption: String? = null) {
     FluffCard(modifier, padding = PaddingValues(16.dp)) {
-        Eyebrow(label)
+        // Three tiles share a row, so on narrow screens or large text the label and value shrink rather than
+        // wrap ("VOLUM" / "E", "8.4k" with "kg" split over two lines).
+        Text(
+            label.uppercase(), style = FluffTheme.type.eyebrow, color = Fluff.TextFaint, maxLines = 1, softWrap = false,
+            autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = FluffTheme.type.eyebrow.fontSize),
+        )
         Spacer(Modifier.height(6.dp))
         Row(verticalAlignment = Alignment.Bottom) {
-            AnimatedNumber(value, FluffTheme.type.number, color = accent)
-            if (unit != null) Text(" $unit", style = MaterialTheme.typography.labelLarge, color = Fluff.TextDim, modifier = Modifier.padding(bottom = 4.dp))
+            AnimatedNumber(value, FluffTheme.type.number, Modifier.weight(1f, fill = false), color = accent, shrinkToFit = true)
+            if (unit != null) Text("\u00A0$unit", style = MaterialTheme.typography.labelLarge, color = Fluff.TextDim, maxLines = 1, softWrap = false, modifier = Modifier.padding(bottom = 4.dp))
         }
         if (caption != null) Text(caption, style = MaterialTheme.typography.bodySmall, color = Fluff.TextFaint)
     }
@@ -155,7 +165,7 @@ fun StatTile(label: String, value: String, modifier: Modifier = Modifier, unit: 
 
 /** Text that rolls vertically when its value changes, like an odometer. */
 @Composable
-fun AnimatedNumber(value: String, style: androidx.compose.ui.text.TextStyle, modifier: Modifier = Modifier, color: Color = Fluff.Text) {
+fun AnimatedNumber(value: String, style: androidx.compose.ui.text.TextStyle, modifier: Modifier = Modifier, color: Color = Fluff.Text, shrinkToFit: Boolean = false) {
     AnimatedContent(
         targetState = value,
         transitionSpec = {
@@ -165,7 +175,14 @@ fun AnimatedNumber(value: String, style: androidx.compose.ui.text.TextStyle, mod
         },
         label = "number",
         modifier = modifier,
-    ) { Text(it, style = style, color = color) }
+    ) {
+        if (shrinkToFit) {
+            // Shrinks long values (e.g. "132.5" at large font sizes) instead of overflowing into neighbours.
+            Text(it, style = style, color = color, maxLines = 1, softWrap = false, autoSize = TextAutoSize.StepBased(minFontSize = 14.sp, maxFontSize = style.fontSize))
+        } else {
+            Text(it, style = style, color = color)
+        }
+    }
 }
 
 @Composable
@@ -231,13 +248,18 @@ fun Stepper(
     onPlus: () -> Unit,
     modifier: Modifier = Modifier,
     accent: Color = Fluff.Text,
+    /** Fill the width it is given (e.g. two steppers sharing a row) instead of a fixed 160dp. */
+    fill: Boolean = false,
 ) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Eyebrow(label)
         Spacer(Modifier.height(6.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(if (fill) Modifier.fillMaxWidth() else Modifier, verticalAlignment = Alignment.CenterVertically) {
             RepeatButton(Icons.Rounded.Remove, "Decrease $label", onMinus)
-            AnimatedNumber(value, FluffTheme.type.number.copy(textAlign = TextAlign.Center), Modifier.width(72.dp), accent)
+            AnimatedNumber(
+                value, FluffTheme.type.number.copy(textAlign = TextAlign.Center),
+                (if (fill) Modifier.weight(1f).widthIn(min = 48.dp) else Modifier.width(72.dp)).padding(horizontal = 4.dp), accent, shrinkToFit = true,
+            )
             RepeatButton(Icons.Rounded.Add, "Increase $label", onPlus)
         }
     }
@@ -314,6 +336,16 @@ fun Meter(label: String, fraction: Float, valueText: String, modifier: Modifier 
         }
         if (sub != null) Text(sub, style = MaterialTheme.typography.bodySmall, color = Fluff.TextFaint, modifier = Modifier.padding(top = 4.dp))
     }
+}
+
+/**
+ * Lets a horizontally scrolling row inside a padded column run to the screen edges, so chips scroll under the edge
+ * instead of being cut at the content padding. Pair with the same horizontal contentPadding on the row.
+ */
+fun Modifier.bleed(horizontal: Dp): Modifier = layout { measurable, constraints ->
+    val extra = (horizontal * 2).roundToPx()
+    val placeable = measurable.measure(constraints.copy(minWidth = constraints.minWidth + extra, maxWidth = constraints.maxWidth + extra))
+    layout(constraints.maxWidth, placeable.height) { placeable.place(-horizontal.roundToPx(), 0) }
 }
 
 @Composable

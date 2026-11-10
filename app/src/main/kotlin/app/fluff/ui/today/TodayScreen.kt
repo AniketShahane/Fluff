@@ -18,6 +18,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.FlowRow
+import app.fluff.ui.components.bleed
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -204,7 +206,7 @@ private fun Header(state: TodayState, onRefresh: () -> Unit) {
             val name = state.profile.name.trim().split(" ").firstOrNull().orEmpty()
             Text(
                 if (name.isBlank()) Fmt.greeting() else "${Fmt.greeting()}, $name",
-                style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.headlineMedium, maxLines = 2, overflow = TextOverflow.Ellipsis,
             )
         }
         val spin = rememberInfiniteTransition(label = "sync")
@@ -225,7 +227,8 @@ private fun Hero(state: TodayState, onClick: () -> Unit) {
         Spacer(Modifier.height(10.dp))
         AnimatedContent(r?.band, transitionSpec = { fadeIn(tween(400)) togetherWith fadeOut(tween(200)) }, label = "headline") { band ->
             Text(
-                band?.headline ?: "Connect a wearable or do a quick check-in to unlock readiness.",
+                // While loading, say nothing rather than flash the "no data" prompt.
+                band?.headline ?: if (state.loading) "" else "Connect a wearable or do a quick check-in to unlock readiness.",
                 style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, color = if (band == null) Fluff.TextDim else Fluff.Text,
                 modifier = Modifier.padding(horizontal = 24.dp),
             )
@@ -242,7 +245,7 @@ private fun Hero(state: TodayState, onClick: () -> Unit) {
 
 @Composable
 private fun FactorRow(factors: List<ReadinessFactor>, onClick: () -> Unit) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(horizontal = 2.dp)) {
+    LazyRow(Modifier.bleed(20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(horizontal = 20.dp)) {
         items(factors, key = { it.kind.name }) { f ->
             val c = when { f.impact >= 3 -> Fluff.Mint; f.impact <= -3 -> Fluff.Rose; else -> Fluff.TextDim }
             Pill(
@@ -297,7 +300,7 @@ private fun DoneCard(c: CompletedToday, state: TodayState, onClick: () -> Unit) 
             Column(Modifier.weight(1f)) {
                 Text("Done for today", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "${c.title} · ${Fmt.minutes(c.minutes)} · ${c.sets} sets · ${Fmt.bigWeight(c.volumeKg, state.profile.unit)} ${state.profile.unit.label}",
+                    "${c.title} · ${Fmt.minutes(c.minutes)} · ${c.sets}\u00A0sets · ${Fmt.bigWeight(c.volumeKg, state.profile.unit)}\u00A0${state.profile.unit.label}",
                     style = MaterialTheme.typography.bodyMedium, color = Fluff.TextDim,
                 )
             }
@@ -321,7 +324,7 @@ private fun PlanCard(plan: WorkoutPlan, state: TodayState, replanning: Boolean, 
             Text(it, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.then(if (replanning) Modifier.semantics { contentDescription = "Updating plan" } else Modifier))
         }
         Spacer(Modifier.height(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Pill(Fmt.minutes(plan.estimatedMinutes), icon = Icons.Rounded.Timer)
             Pill(plan.focus.label)
             Pill("${plan.mainExercises.size} " + if (plan.focus == Focus.RECOVERY) "moves" else "lifts")
@@ -414,17 +417,24 @@ private fun MainExerciseRow(exerciseId: String, summary: String, insights: List<
         Modifier.fillMaxWidth().padding(vertical = 2.dp).clip(RoundedCornerShape(14.dp)).clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 4.dp, vertical = 8.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(PlanText.name(exerciseId), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-            Spacer(Modifier.width(8.dp))
-            ex?.let { MovementTag(it.movementType) }
-            Spacer(Modifier.weight(1f))
-            if (ExerciseVideos[exerciseId] != null) Icon(Icons.Rounded.PlayCircle, "Form video", tint = Fluff.TextFaint, modifier = Modifier.size(20.dp))
+        Row(verticalAlignment = Alignment.Top) {
+            // The tag drops below a long name instead of squeezing it to "Romanian …".
+            FlowRow(
+                Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp),
+                itemVerticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(PlanText.name(exerciseId), style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                ex?.let { MovementTag(it.movementType) }
+            }
+            if (ExerciseVideos[exerciseId] != null) {
+                Spacer(Modifier.width(8.dp))
+                Icon(Icons.Rounded.PlayCircle, "Form video", tint = Fluff.TextFaint, modifier = Modifier.padding(top = 1.dp).size(20.dp))
+            }
         }
         Spacer(Modifier.height(2.dp))
-        Text(summary, style = MaterialTheme.typography.labelMedium, color = Fluff.TextDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(summary, style = MaterialTheme.typography.labelMedium, color = Fluff.TextDim, maxLines = 2, overflow = TextOverflow.Ellipsis)
         if (insights.isNotEmpty()) Spacer(Modifier.height(4.dp))
-        insights.take(2).forEach { InsightLine(it, maxLines = 1) }
+        insights.take(2).forEach { InsightLine(it, maxLines = 2) }
     }
 }
 
@@ -448,7 +458,7 @@ private fun AdjustRow(state: TodayState, actions: TodayActions, onFocus: () -> U
                 Text("Reset", style = MaterialTheme.typography.labelLarge, color = Fluff.Lime, modifier = Modifier.clip(CircleShape).clickable(onClick = actions.reset).padding(horizontal = 8.dp, vertical = 4.dp))
             }
         }
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyRow(Modifier.bleed(20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(horizontal = 20.dp)) {
             item { Pill("Shorter", icon = Icons.Rounded.Remove, onClick = actions.shorter) }
             item { Pill("Longer", icon = Icons.Rounded.Add, onClick = actions.longer) }
             item { Pill("Easier", icon = Icons.Rounded.TrendingDown, selected = a.intensityShift < 0, onClick = actions.easier) }

@@ -118,7 +118,9 @@ fun ReadinessOrb(
             if (ring.value > 0f) {
                 rotate(-90f, c) {
                     drawArc(
-                        brush = Brush.sweepGradient(listOf(deep, color, color), c),
+                        // Stops follow the arc and wrap back to `deep`, so the round start cap (which pokes just
+                        // behind 0°) isn't painted in the end colour.
+                        brush = Brush.sweepGradient(0f to deep, ring.value.coerceIn(0.01f, 1f) to color, 1f to deep, center = c),
                         startAngle = 0f, sweepAngle = 360f * ring.value, useCenter = false,
                         topLeft = Offset(c.x - ringR, c.y - ringR), size = androidx.compose.ui.geometry.Size(ringR * 2, ringR * 2),
                         style = Stroke(stroke, cap = StrokeCap.Round),
@@ -144,11 +146,14 @@ fun ReadinessOrb(
             )
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = if (score == null) "–" else "$shown",
-                style = FluffTheme.type.hero.copy(fontSize = FluffTheme.type.hero.fontSize * (size.value / 260f)),
-                color = Fluff.Night,
-            )
+            // No placeholder glyph without a score: at hero size a dash renders as a heavy black bar.
+            if (score != null) {
+                Text(
+                    text = "$shown",
+                    style = FluffTheme.type.hero.copy(fontSize = FluffTheme.type.hero.fontSize * (size.value / 260f)),
+                    color = Fluff.Night,
+                )
+            }
             if (showLabel && band != null) {
                 Text(band.label.uppercase(), style = FluffTheme.type.eyebrow, color = Fluff.Night.copy(alpha = 0.75f))
             }
