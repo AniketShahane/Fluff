@@ -79,6 +79,10 @@ The Claude coach receives a compact JSON context (profile, limitations, readines
 ### Visual language
 Dark-first, soft "fluff" geometry: large corner radii, glowing gradients, morphing shapes (`androidx.graphics:graphics-shapes`), spring physics everywhere, staggered list entrances, shared-element transitions from the plan card into the workout, and custom Canvas charts that draw themselves in.
 
+## Importing history
+
+Fitbod (Profile → Import from Fitbod): `core/importer/FitbodImport.kt` reads both Fitbod CSV formats (the iOS in-app export and the date-only extract Fitbod support mails to Android users), groups sets into workouts by Fitbod's per-workout timestamp, and maps names to library ids through a hand-checked alias table. Only true equivalents are mapped (same movement, same weight semantics); anything else is stored as `fitbod:<name>` so it shows in history but never feeds e1RM or planning. Sessions are saved with `source = "FITBOD"` and deduplicated on their start time, so re-importing a newer export only adds new workouts. Fitbod has no end times, so duration is estimated at 2.5 min per set (20 to 120 min).
+
 ## Quality
 - `:core` unit tests cover every engine.
 - `:app` Robolectric tests for repositories/view-models and Roborazzi screenshot tests for key screens.

@@ -41,7 +41,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -71,6 +74,8 @@ import app.fluff.ui.history.HistoryViewModel
 import app.fluff.ui.history.SessionDetailScreen
 import app.fluff.ui.history.SessionDetailViewModel
 import app.fluff.ui.onboarding.OnboardingScreen
+import app.fluff.ui.profile.FitbodImportSheet
+import app.fluff.ui.profile.FitbodImportViewModel
 import app.fluff.ui.profile.ProfileActions
 import app.fluff.ui.profile.ProfileScreen
 import app.fluff.ui.profile.ProfileViewModel
@@ -167,6 +172,7 @@ fun FluffRoot(onboarded: Boolean) {
                 val ctx = LocalContext.current
                 LifecycleResumeEffect(Unit) { vm.refreshConnections(); onPauseOrDispose { } }
                 val hc = rememberHealthConnectRequest(state.connections) { vm.onHealthConnectResult(it) }
+                var showFitbodImport by rememberSaveable { mutableStateOf(false) }
                 ProfileScreen(
                     state,
                     ProfileActions(
@@ -175,8 +181,12 @@ fun FluffRoot(onboarded: Boolean) {
                         saveWhoop = { id, s -> vm.saveWhoopCredentials(id, s) },
                         connectWhoop = { vm.whoopAuthUri { openCustomTab(ctx, it) } },
                         disconnectWhoop = { vm.disconnectWhoop() }, connectHealth = hc, syncNow = { vm.syncNow() },
+                        importFitbod = { showFitbodImport = true },
                     ),
                 )
+                if (showFitbodImport) {
+                    FitbodImportSheet(fluffViewModel { FitbodImportViewModel(it) }, state.profile.unit) { showFitbodImport = false }
+                }
             }
             composable<WorkoutRoute>(
                 enterTransition = { slideInVertically(Fluff.gentle()) { it } + fadeIn() },

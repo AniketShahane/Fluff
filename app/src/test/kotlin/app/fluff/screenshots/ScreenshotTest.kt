@@ -191,4 +191,24 @@ class ScreenshotTest {
             }
         }
     }
+
+    @Test fun fitbodImport() {
+        val csv = buildString {
+            appendLine("Date,Exercise,Reps,Weight(kg),Duration(s),Distance(m),Incline,Resistance,isWarmup,Note,multiplier")
+            listOf("2025-03-04", "2025-06-10", "2026-10-28").forEach { day ->
+                repeat(3) { appendLine("$day 18:00:00 +0000,Back Squat, 5,120.0,0.0,0.0,0.0,0.0,false,, 1.0") }
+                repeat(3) { appendLine("$day 18:00:00 +0000,Dumbbell Bench Press, 10,32.5,0.0,0.0,0.0,0.0,false,, 2.0") }
+                repeat(3) { appendLine("$day 18:00:00 +0000,Smith Machine Squat, 8,80.0,0.0,0.0,0.0,0.0,false,, 1.0") }
+                appendLine("$day 18:00:00 +0000,Zottman Curl, 12,12.5,0.0,0.0,0.0,0.0,false,, 2.0")
+            }
+        }
+        val plan = app.fluff.core.importer.FitbodImporter.plan(app.fluff.core.importer.FitbodCsv.parse(csv), zone = ZoneOffset.UTC)
+        shot("09_fitbod_import") {
+            androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.background(app.fluff.ui.theme.Fluff.Ink).padding(24.dp)) {
+                app.fluff.ui.profile.FitbodImportContent.Preview(
+                    app.fluff.ui.profile.FitbodImportState.Preview(plan, alreadyImported = 1), d.profile.unit, {}, {}, {},
+                )
+            }
+        }
+    }
 }

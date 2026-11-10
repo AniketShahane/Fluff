@@ -81,6 +81,7 @@ data class ProfileActions(
     val disconnectWhoop: () -> Unit = {},
     val connectHealth: () -> Unit = {},
     val syncNow: () -> Unit = {},
+    val importFitbod: () -> Unit = {},
 )
 
 private enum class Editor { NAME, GOAL, EMPHASIS, EXPERIENCE, SCHEDULE, EQUIPMENT, LIMITS, ACTIVITIES, BODY, CLAUDE, WHOOP }
@@ -195,6 +196,12 @@ fun ProfileScreen(state: ProfileState, actions: ProfileActions, modifier: Modifi
             FluffCard(padding = PaddingValues(vertical = 6.dp)) {
                 SettingRow("Body", "${app.fluff.ui.Fmt.weightWithUnit(p.bodyWeightKg, p.unit)} · ${p.sex.label}") { editor = Editor.BODY }
                 ToggleRow("Haptics", state.settings.hapticsEnabled, Modifier.padding(horizontal = 18.dp)) { v -> actions.settings { it.copy(hapticsEnabled = v) } }
+            }
+        }
+        item { Eyebrow("Your data", Modifier.padding(start = 4.dp, top = 8.dp)) }
+        item {
+            FluffCard(padding = PaddingValues(vertical = 6.dp)) {
+                SettingRow("Import from Fitbod", "Workout history", actions.importFitbod)
             }
         }
         item {
