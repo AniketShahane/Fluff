@@ -17,7 +17,7 @@ enum class Focus(val label: String) {
 enum class BlockType(val label: String) { WARMUP("Warm-up"), MAIN("Main work"), COOLDOWN("Cool-down") }
 
 @Serializable
-enum class PlanSource(val label: String) { ENGINE("Fluff engine"), AI("Claude coach") }
+enum class PlanSource(val label: String) { ENGINE("Fluff engine"), AI("Claude coach"), ASSISTANT("Your assistant") }
 
 @Serializable
 data class PlannedSet(

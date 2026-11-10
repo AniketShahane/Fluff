@@ -377,7 +377,7 @@ private fun Modifier.graphicsAlpha(a: Float) = graphicsLayer { alpha = a }
 
 @Composable
 private fun SourceBadge(source: PlanSource) {
-    val ai = source == PlanSource.AI
+    val ai = source != PlanSource.ENGINE
     Row(
         Modifier.clip(CircleShape).background(if (ai) Fluff.Violet.copy(alpha = 0.16f) else Fluff.CardHigh).padding(horizontal = 10.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,

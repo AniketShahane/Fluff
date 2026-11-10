@@ -28,13 +28,17 @@ class SyncManager(
     private val healthConnect: HealthConnectSource,
     private val prefs: PreferencesStore,
     private val clock: Clock,
+    /** Runs after every sync, outside the lock (pushes fresh data to the Fluff MCP server). */
+    private val afterSync: suspend () -> Unit = {},
 ) {
     private val lock = Mutex()
     private val _state = MutableStateFlow(SyncState())
     val state: StateFlow<SyncState> = _state.asStateFlow()
 
     /** Returns a human-readable error, or null on success. Safe to call concurrently. */
-    suspend fun sync(days: Int = BASELINE_DAYS): String? = lock.withLock {
+    suspend fun sync(days: Int = BASELINE_DAYS): String? = syncLocked(days).also { runCatching { afterSync() } }
+
+    private suspend fun syncLocked(days: Int): String? = lock.withLock {
         _state.value = SyncState(running = true)
         val zone = ZoneId.systemDefault()
         val errors = mutableListOf<String>()

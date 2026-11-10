@@ -47,6 +47,16 @@ interface SessionDao {
     @Query("SELECT * FROM sessions WHERE id = :id")
     suspend fun get(id: Long): SessionWithSets?
 
+    @Transaction
+    @Query("SELECT * FROM sessions WHERE status != 'DISCARDED' AND epochDay BETWEEN :from AND :to ORDER BY startedAt")
+    suspend fun inRange(from: Long, to: Long): List<SessionWithSets>
+
+    @Query("SELECT MIN(epochDay) FROM sessions") suspend fun firstDay(): Long?
+
+    /** "count:sum of ids" of sessions before a day: changes when old sessions are imported or deleted. */
+    @Query("SELECT COUNT(*) || ':' || COALESCE(SUM(id), 0) FROM sessions WHERE status != 'DISCARDED' AND epochDay < :beforeDay")
+    suspend fun fingerprintBefore(beforeDay: Long): String
+
     @Query("DELETE FROM sessions WHERE id = :id") suspend fun delete(id: Long)
     @Query("SELECT COUNT(*) FROM sessions WHERE epochDay = :day AND status = 'COMPLETED'") suspend fun countCompletedOn(day: Long): Int
 }
@@ -56,6 +66,7 @@ interface SignalsDao {
     @Upsert suspend fun upsert(row: SignalsEntity)
     @Query("SELECT * FROM signals WHERE epochDay = :day") suspend fun get(day: Long): SignalsEntity?
     @Query("SELECT * FROM signals WHERE epochDay BETWEEN :from AND :to ORDER BY epochDay") suspend fun range(from: Long, to: Long): List<SignalsEntity>
+    @Query("SELECT MIN(epochDay) FROM signals") suspend fun firstDay(): Long?
     @Query("SELECT * FROM signals WHERE epochDay BETWEEN :from AND :to ORDER BY epochDay") fun observeRange(from: Long, to: Long): Flow<List<SignalsEntity>>
 }
 
@@ -65,6 +76,7 @@ interface ActivityDao {
     @Query("SELECT * FROM activities WHERE startEpochMs >= :fromMs ORDER BY startEpochMs") suspend fun since(fromMs: Long): List<ActivityEntity>
     @Query("SELECT * FROM activities WHERE startEpochMs >= :fromMs ORDER BY startEpochMs DESC") fun observeSince(fromMs: Long): Flow<List<ActivityEntity>>
     @Query("DELETE FROM activities WHERE id = :id") suspend fun delete(id: String)
+    @Query("SELECT MIN(startEpochMs) FROM activities") suspend fun firstStartMs(): Long?
 }
 
 @Dao
@@ -72,6 +84,7 @@ interface ReadinessDao {
     @Upsert suspend fun upsert(row: ReadinessEntity)
     @Query("SELECT * FROM readiness WHERE epochDay = :day") fun observe(day: Long): Flow<ReadinessEntity?>
     @Query("SELECT * FROM readiness WHERE epochDay = :day") suspend fun get(day: Long): ReadinessEntity?
+    @Query("SELECT * FROM readiness WHERE epochDay BETWEEN :from AND :to ORDER BY epochDay") suspend fun range(from: Long, to: Long): List<ReadinessEntity>
     @Query("SELECT * FROM readiness WHERE epochDay BETWEEN :from AND :to ORDER BY epochDay") fun observeRange(from: Long, to: Long): Flow<List<ReadinessEntity>>
 }
 
@@ -80,6 +93,7 @@ interface CheckInDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun put(row: CheckInEntity)
     @Query("SELECT * FROM checkins WHERE epochDay = :day") suspend fun get(day: Long): CheckInEntity?
     @Query("SELECT * FROM checkins WHERE epochDay = :day") fun observe(day: Long): Flow<CheckInEntity?>
+    @Query("SELECT * FROM checkins WHERE epochDay BETWEEN :from AND :to ORDER BY epochDay") suspend fun range(from: Long, to: Long): List<CheckInEntity>
 }
 
 @Dao
@@ -88,6 +102,7 @@ interface PlanDao {
     @Query("SELECT * FROM plans WHERE epochDay = :day") fun observe(day: Long): Flow<PlanEntity?>
     @Query("SELECT * FROM plans WHERE epochDay = :day") suspend fun get(day: Long): PlanEntity?
     @Query("DELETE FROM plans WHERE epochDay < :beforeDay") suspend fun prune(beforeDay: Long)
+    @Query("SELECT * FROM plans WHERE epochDay BETWEEN :from AND :to ORDER BY epochDay") suspend fun range(from: Long, to: Long): List<PlanEntity>
 }
 
 @Dao

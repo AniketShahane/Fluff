@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -81,11 +84,14 @@ data class ProfileActions(
     val disconnectWhoop: () -> Unit = {},
     val connectHealth: () -> Unit = {},
     val syncNow: () -> Unit = {},
+    val connectCloud: (String, String, (String?) -> Unit) -> Unit = { _, _, _ -> },
+    val disconnectCloud: () -> Unit = {},
+    val cloudSyncNow: (Boolean) -> Unit = {},
 )
 
-private enum class Editor { NAME, GOAL, EMPHASIS, EXPERIENCE, SCHEDULE, EQUIPMENT, LIMITS, ACTIVITIES, BODY, CLAUDE, WHOOP }
+private enum class Editor { NAME, GOAL, EMPHASIS, EXPERIENCE, SCHEDULE, EQUIPMENT, LIMITS, ACTIVITIES, BODY, CLAUDE, WHOOP, CLOUD }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ProfileScreen(state: ProfileState, actions: ProfileActions, modifier: Modifier = Modifier) {
     val p = state.profile
@@ -163,6 +169,33 @@ fun ProfileScreen(state: ProfileState, actions: ProfileActions, modifier: Modifi
             }
         }
         item {
+            val s = state.settings
+            ConnectionCard(
+                icon = Icons.Rounded.Forum, color = Fluff.Lime, title = "Claude & ChatGPT",
+                status = when {
+                    !c.cloudConnected -> "Talk about your training from the Claude or ChatGPT app"
+                    s.cloudLastError != null -> "Upload failed: ${s.cloudLastError}"
+                    s.cloudLastSyncMs == 0L -> "Connected · first upload pending"
+                    else -> "Connected · uploaded " + DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(s.cloudLastSyncMs))
+                },
+                connected = c.cloudConnected && s.cloudLastError == null,
+            ) {
+                if (c.cloudConnected) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GhostButton(if (state.cloudSyncing) "Uploading…" else "Upload now", { actions.cloudSyncNow(false) }, icon = Icons.Rounded.Sync)
+                        GhostButton("Disconnect", actions.disconnectCloud)
+                    }
+                    Text(
+                        "Re-upload everything",
+                        style = MaterialTheme.typography.bodySmall, color = Fluff.TextFaint,
+                        modifier = Modifier.padding(top = 10.dp).clickable(role = Role.Button) { actions.cloudSyncNow(true) },
+                    )
+                } else {
+                    GhostButton("Connect server", { editor = Editor.CLOUD })
+                }
+            }
+        }
+        item {
             val last = state.settings.lastSyncEpochMs
             FluffCard(padding = PaddingValues(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -199,7 +232,7 @@ fun ProfileScreen(state: ProfileState, actions: ProfileActions, modifier: Modifi
         }
         item {
             Text(
-                "Your data stays on this phone. With the AI coach on, a compact training summary (never your name) is sent to Anthropic to plan sessions. Fluff ${BuildConfig.VERSION_NAME}",
+                "Your data stays on this phone. With the AI coach on, a compact training summary (never your name) is sent to Anthropic to plan sessions. With Claude & ChatGPT connected, your training data is copied to your own server so your assistant can read it.\nFluff ${BuildConfig.VERSION_NAME}",
                 style = MaterialTheme.typography.bodySmall, color = Fluff.TextFaint, modifier = Modifier.padding(top = 12.dp, start = 4.dp, end = 4.dp),
             )
         }
@@ -231,6 +264,9 @@ fun ProfileScreen(state: ProfileState, actions: ProfileActions, modifier: Modifi
                     }
                     Editor.CLAUDE -> ClaudeKeyEditor(c.claudeKeySet, { k -> actions.saveClaudeKey(k); editor = null })
                     Editor.WHOOP -> WhoopEditor { id, secret -> actions.saveWhoop(id, secret); editor = null }
+                    Editor.CLOUD -> CloudEditor(state.settings.cloudUrl.orEmpty()) { url, token, onError ->
+                        actions.connectCloud(url, token) { err -> if (err == null) editor = null else onError(err) }
+                    }
                 }
             }
         }
@@ -332,4 +368,34 @@ fun WhoopEditor(onSave: (String, String) -> Unit) {
     OutlinedTextField(secret, { secret = it }, label = { Text("Client secret") }, singleLine = true, modifier = Modifier.fillMaxWidth(), visualTransformation = PasswordVisualTransformation())
     Spacer(Modifier.height(16.dp))
     PrimaryButton("Save", { onSave(id, secret) }, Modifier.fillMaxWidth(), enabled = id.isNotBlank() && secret.isNotBlank(), color = Fluff.Mint)
+}
+
+@Composable
+fun CloudEditor(initialUrl: String, onConnect: (String, String, (String) -> Unit) -> Unit) {
+    var url by remember { mutableStateOf(initialUrl) }
+    var token by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    SheetTitle("Claude & ChatGPT")
+    Text(
+        "Fluff copies your training to your own Fluff server so the Claude or ChatGPT app can read it, and picks up goals and workouts you plan there. Paste the server address and sync token printed when the server was set up.",
+        style = MaterialTheme.typography.bodyMedium, color = Fluff.TextDim,
+    )
+    Spacer(Modifier.height(14.dp))
+    OutlinedTextField(
+        url, { url = it }, label = { Text("Server address") }, placeholder = { Text("https://fluff-mcp.you.workers.dev") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
+    )
+    Spacer(Modifier.height(8.dp))
+    OutlinedTextField(
+        token, { token = it }, label = { Text("Sync token") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+        visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+    )
+    error?.let { Spacer(Modifier.height(8.dp)); Text(it, style = MaterialTheme.typography.bodySmall, color = Fluff.Amber) }
+    Spacer(Modifier.height(16.dp))
+    PrimaryButton(
+        if (busy) "Connecting…" else "Connect",
+        { busy = true; error = null; onConnect(url, token) { busy = false; error = it } },
+        Modifier.fillMaxWidth(), enabled = !busy && url.isNotBlank() && token.isNotBlank(), color = Fluff.Lime,
+    )
 }

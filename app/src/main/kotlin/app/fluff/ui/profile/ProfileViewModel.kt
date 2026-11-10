@@ -22,6 +22,7 @@ data class Connections(
     val hcAvailability: HcAvailability = HcAvailability.UNAVAILABLE,
     val hcGranted: Set<String> = emptySet(),
     val hcAllPermissions: Set<String> = emptySet(),
+    val cloudConnected: Boolean = false,
 ) {
     val hcConnected: Boolean get() = hcGranted.isNotEmpty()
 }
@@ -31,14 +32,15 @@ data class ProfileState(
     val settings: AppSettings = AppSettings(),
     val connections: Connections = Connections(),
     val syncing: Boolean = false,
+    val cloudSyncing: Boolean = false,
 )
 
 /** Shared by Profile and onboarding: profile edits plus every connection. */
 class ProfileViewModel(private val c: AppContainer) : ViewModel() {
     private val connections = MutableStateFlow(Connections())
 
-    val state: StateFlow<ProfileState> = combine(c.prefs.profile, c.prefs.settings, connections, c.sync.state) { p, s, conn, sync ->
-        ProfileState(p, s, conn, sync.running)
+    val state: StateFlow<ProfileState> = combine(c.prefs.profile, c.prefs.settings, connections, c.sync.state, c.cloud.running) { p, s, conn, sync, cloud ->
+        ProfileState(p, s, conn, sync.running, cloud)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ProfileState())
 
     init { refreshConnections() }
@@ -52,6 +54,7 @@ class ProfileViewModel(private val c: AppContainer) : ViewModel() {
             hcAvailability = hc.availability(),
             hcGranted = hc.grantedPermissions(),
             hcAllPermissions = hc.allPermissions,
+            cloudConnected = c.cloud.isConnected(),
         )
     }
 
@@ -84,6 +87,20 @@ class ProfileViewModel(private val c: AppContainer) : ViewModel() {
         runCatching { c.whoop.authorizationUri() }
             .onSuccess(onUri)
             .onFailure { c.messages.tryEmit(it.message ?: "Couldn't start WHOOP sign-in") }
+    }
+
+    /** Connects the Fluff MCP server; [onDone] gets an error message or null. */
+    fun connectCloud(url: String, token: String, onDone: (String?) -> Unit) = viewModelScope.launch {
+        val err = c.cloud.connect(url, token)
+        refreshConnections()
+        onDone(err)
+        c.messages.tryEmit(err ?: "Connected. Claude and ChatGPT can now see your training.")
+    }
+
+    fun disconnectCloud() = viewModelScope.launch { c.cloud.disconnect(); refreshConnections() }
+
+    fun cloudSyncNow(full: Boolean = false) = viewModelScope.launch {
+        c.messages.tryEmit(c.cloud.sync(full) ?: if (full) "Re-uploaded everything" else "Uploaded")
     }
 
     fun disconnectWhoop() = viewModelScope.launch { c.whoop.disconnect(); refreshConnections() }

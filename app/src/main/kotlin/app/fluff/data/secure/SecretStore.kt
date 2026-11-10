@@ -63,6 +63,7 @@ enum class Secret(val key: String) {
     WHOOP_CLIENT_SECRET("whoop_client_secret"),
     WHOOP_TOKENS("whoop_tokens"),
     WHOOP_PENDING_STATE("whoop_pending_state"),
+    CLOUD_SYNC_TOKEN("cloud_sync_token"),
 }
 
 class SecretStore(private val context: Context, private val cryptor: Cryptor = KeystoreCryptor()) {

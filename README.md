@@ -36,7 +36,10 @@ Claude coach refines the plan; an on-device validator always has the final say o
 - **Progress.** Strength score vs bodyweight standards, a radar across eight movement patterns,
   strength for each of your sports with its limiting pattern, e1RM trends with goal projections,
   weekly volume per muscle, and a consistency heatmap.
-- **Private by design.** All data lives on the phone. Secrets are encrypted with Android Keystore
+- **Talk to it from Claude or ChatGPT (optional).** A small MCP server you deploy to your own
+  Cloudflare account lets an assistant read your training and queue goals or workouts that the
+  phone validates and applies. See [mcp/README.md](mcp/README.md).
+- **Private by design.** All data lives on the phone (and, only if you connect it, your own MCP server). Secrets are encrypted with Android Keystore
   and excluded from backups. Finished sessions are written back to Health Connect.
 
 ## Setup
@@ -49,6 +52,8 @@ Claude coach refines the plan; an on-device validator always has the final say o
    `WHOOP_CLIENT_ID` / `WHOOP_CLIENT_SECRET` in an uncommitted `secrets.properties` for local builds).
 4. **Claude coach:** add an API key from [console.anthropic.com](https://console.anthropic.com) in
    Profile → Claude coach.
+5. **Claude & ChatGPT (optional):** `cd mcp && npm ci && npx wrangler login && npm run setup`, then
+   follow what it prints ([details](mcp/README.md)).
 
 ## Project layout
 
@@ -56,6 +61,7 @@ Claude coach refines the plan; an on-device validator always has the final say o
   contract and plan validator. Fully unit-tested.
 - `app/` Android: Room + DataStore, Keystore secrets, WHOOP / Health Connect / Claude integrations,
   sync worker, Compose UI with custom Canvas charts and a morphing readiness orb.
+- `mcp/` TypeScript Cloudflare Worker: remote MCP server for Claude/ChatGPT plus the phone's sync API.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
 

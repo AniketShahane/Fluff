@@ -22,6 +22,8 @@ class WorkoutFinisher(
     private val prefs: PreferencesStore,
     private val coach: ClaudeCoach,
     private val json: Json,
+    /** Runs after a session is saved (pushes it to the Fluff MCP server). */
+    private val afterFinish: () -> Unit = {},
 ) {
     suspend fun finish(sessionId: Long, sessionRpe: Double?, notes: String?): WorkoutSummary {
         val profile = prefs.currentProfile()
@@ -39,6 +41,7 @@ class WorkoutFinisher(
                 }
             }
         }
+        afterFinish()
         return summary
     }
 

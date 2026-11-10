@@ -10,12 +10,15 @@ import app.fluff.domain.CoachEngine
 import app.fluff.domain.SyncManager
 import app.fluff.domain.WorkoutFinisher
 import app.fluff.integrations.claude.ClaudeCoach
+import app.fluff.integrations.cloud.CloudApi
+import app.fluff.integrations.cloud.CloudSync
 import app.fluff.integrations.healthconnect.HealthConnectSource
 import app.fluff.integrations.whoop.WhoopClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import java.time.Clock
@@ -47,9 +50,10 @@ class AppContainer(context: Context) {
     val healthConnect by lazy { HealthConnectSource(app) }
     val whoop by lazy { WhoopClient(http, secrets, json, clock) }
     val coach by lazy { ClaudeCoach { secrets.get(Secret.CLAUDE_API_KEY) } }
-    val sync by lazy { SyncManager(db, whoop, healthConnect, prefs, clock) }
+    val sync by lazy { SyncManager(db, whoop, healthConnect, prefs, clock) { appScope.launch { cloud.sync() } } }
+    val cloud by lazy { CloudSync(db, prefs, secrets, training, engine, CloudApi(http, json), clock, json) }
     val engine by lazy { CoachEngine(db, prefs, training, coach, clock, json, appScope) }
-    val finisher by lazy { WorkoutFinisher(training, healthConnect, prefs, coach, json) }
+    val finisher by lazy { WorkoutFinisher(training, healthConnect, prefs, coach, json) { appScope.launch { cloud.sync() } } }
 }
 
 /**
