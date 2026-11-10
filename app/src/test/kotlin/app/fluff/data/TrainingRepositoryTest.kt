@@ -88,4 +88,27 @@ class TrainingRepositoryTest {
         repo.checkGoals(SampleData.history)
         assertThat(repo.goals.first().single().achievedEpochDay).isNotNull()
     }
+
+    @Test fun fitbodImportAddsCompletedHistoryOnceAndFeedsStrength() = runTest {
+        val csv = """
+            Date,Exercise,Reps,Weight(kg),Duration(s),Distance(m),Incline,Resistance,isWarmup,Note,multiplier
+            2025-01-19 09:37:32 +0000,Back Squat, 5,60.0,0.0,0.0,0.0,0.0,true,, 1.0
+            2025-01-19 09:37:32 +0000,Back Squat, 5,110.0,0.0,0.0,0.0,0.0,false,, 1.0
+            2025-01-19 09:37:32 +0000,Zottman Curl, 12,12.5,0.0,0.0,0.0,0.0,false,, 2.0
+            2025-01-21 18:05:00 +0000,Pull Up, 8,0.0,0.0,0.0,0.0,0.0,false,, 1.0
+        """.trimIndent()
+        val plan = app.fluff.core.importer.FitbodImporter.plan(app.fluff.core.importer.FitbodCsv.parse(csv), zone = ZoneOffset.UTC)
+        assertThat(repo.importWorkouts(plan.workouts)).isEqualTo(2 to 0)
+        // Re-importing the same (or a newer) export never duplicates.
+        assertThat(repo.importWorkouts(plan.workouts)).isEqualTo(0 to 2)
+
+        val sessions = repo.completedSessions.first()
+        assertThat(sessions).hasSize(2)
+        assertThat(sessions[0].sets.map { it.exerciseId }).containsExactly("back_squat", "back_squat", "fitbod:Zottman Curl").inOrder()
+        assertThat(sessions[0].durationMinutes).isEqualTo(20.0)
+        val history = repo.history(78.0)
+        assertThat(history.currentE1rm("back_squat", java.time.LocalDate.of(2025, 1, 20))).isGreaterThan(110.0)
+        assertThat(app.fluff.ui.PlanText.name("fitbod:Zottman Curl")).isEqualTo("Zottman Curl")
+    }
 }
+

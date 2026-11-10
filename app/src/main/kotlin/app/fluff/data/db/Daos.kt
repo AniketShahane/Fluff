@@ -59,6 +59,7 @@ interface SessionDao {
 
     @Query("DELETE FROM sessions WHERE id = :id") suspend fun delete(id: Long)
     @Query("SELECT COUNT(*) FROM sessions WHERE epochDay = :day AND status = 'COMPLETED'") suspend fun countCompletedOn(day: Long): Int
+    @Query("SELECT startedAt FROM sessions WHERE source = :source") suspend fun startTimesFrom(source: String): List<Long>
 }
 
 @Dao

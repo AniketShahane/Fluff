@@ -1,12 +1,15 @@
 package app.fluff.ui
 
+import app.fluff.core.importer.FitbodExercises
 import app.fluff.core.library.ExerciseLibrary
 import app.fluff.core.model.PlannedExercise
 import app.fluff.core.model.SetKind
 import app.fluff.core.model.WeightUnit
 
 object PlanText {
-    fun name(id: String): String = ExerciseLibrary[id]?.name ?: id.replace('_', ' ').replaceFirstChar { it.uppercase() }
+    fun name(id: String): String = ExerciseLibrary[id]?.name
+        ?: id.removePrefix(FitbodExercises.HISTORY_ONLY_PREFIX).takeIf { it != id }
+        ?: id.replace('_', ' ').replaceFirstChar { it.uppercase() }
 
     /** "3 × 8 · 60 kg · RPE 8", "+2 ramp", or "2 × 30s" for drills. */
     fun summary(pe: PlannedExercise, unit: WeightUnit): String {

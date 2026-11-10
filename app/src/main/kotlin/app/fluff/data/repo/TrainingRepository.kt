@@ -1,6 +1,7 @@
 package app.fluff.data.repo
 
 import androidx.room.withTransaction
+import app.fluff.core.importer.ImportedWorkout
 import app.fluff.core.library.ExerciseLibrary
 import app.fluff.core.model.ActivityRecord
 import app.fluff.core.model.BlockType
@@ -35,6 +36,8 @@ data class WorkoutSummary(
     val records: List<PersonalRecord>,
     val musclesWorked: Map<Muscle, Double>,
 )
+
+const val FITBOD_SOURCE = "FITBOD"
 
 /** Sessions, sets, goals and manual activities. */
 class TrainingRepository(
@@ -171,6 +174,43 @@ class TrainingRepository(
             ex.secondary.forEach { muscles.merge(it, 0.5, Double::plus) }
         }
         return WorkoutSummary(record.id, title, record.durationMinutes.toInt(), work.size, volume, prs, muscles)
+    }
+
+    // ───────── Imports ─────────
+
+    /**
+     * Saves imported workouts as completed sessions. Fitbod's workout timestamp is the identity, so
+     * importing a newer export later only adds what's new. Returns (added, already there).
+     */
+    suspend fun importWorkouts(workouts: List<ImportedWorkout>, source: String = FITBOD_SOURCE): Pair<Int, Int> = db.withTransaction {
+        val existing = sessions.startTimesFrom(source).toHashSet()
+        var added = 0
+        workouts.forEach { w ->
+            val start = w.start.toEpochMilli()
+            if (!existing.add(start) || w.sets.isEmpty()) return@forEach
+            val end = start + w.durationMinutes * 60_000L
+            val id = sessions.insert(
+                SessionEntity(
+                    epochDay = w.date.toEpochDay(), startedAt = start, endedAt = end, focus = null,
+                    title = "Fitbod workout", planJson = null, source = source, readinessScore = null,
+                    status = SessionStatus.COMPLETED,
+                ),
+            )
+            // Spread set times across the estimated duration so order and recency stay meaningful.
+            val step = (end - start) / w.sets.size.coerceAtLeast(1)
+            sessions.insertSets(
+                w.sets.mapIndexed { i, s ->
+                    SetEntity(
+                        sessionId = id, exerciseId = s.exerciseId, block = BlockType.MAIN.name, exerciseOrder = s.exerciseOrder,
+                        setIndex = s.setIndex, kind = s.kind.name, targetReps = null, targetDurationSec = null, targetWeightKg = null,
+                        targetRpe = null, restSec = 0, weightKg = s.weightKg, reps = s.reps, durationSec = s.durationSec,
+                        completedAt = start + step * (i + 1),
+                    )
+                },
+            )
+            added++
+        }
+        added to (workouts.size - added)
     }
 
     // ───────── Goals ─────────

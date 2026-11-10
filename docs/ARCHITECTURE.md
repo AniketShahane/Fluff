@@ -85,6 +85,10 @@ Optional. A Cloudflare Worker (D1 for data, KV for OAuth state) in the owner's o
 - **Assistant → phone:** MCP write tools only queue changes in an inbox. On its next sync the phone applies them (scheduled workouts go through `PlanValidator` exactly like the Claude coach's plans and are stored with source `ASSISTANT`, which later signal changes don't overwrite), then reports applied/rejected per change.
 - **Auth:** assistants use OAuth 2.1 + PKCE with dynamic client registration; the sign-in page asks for a random owner key. The phone uses a separate random bearer token.
 
+## Importing history
+
+Fitbod (Profile → Import from Fitbod): `core/importer/FitbodImport.kt` reads both Fitbod CSV formats (the iOS in-app export and the date-only extract Fitbod support mails to Android users), groups sets into workouts by Fitbod's per-workout timestamp, and maps names to library ids through a hand-checked alias table. Only true equivalents are mapped (same movement, same weight semantics); anything else is stored as `fitbod:<name>` so it shows in history but never feeds e1RM or planning. Sessions are saved with `source = "FITBOD"` and deduplicated on their start time, so re-importing a newer export only adds new workouts. Fitbod has no end times, so duration is estimated at 2.5 min per set (20 to 120 min).
+
 ## Quality
 - `:core` unit tests cover every engine.
 - `:app` Robolectric tests for repositories/view-models and Roborazzi screenshot tests for key screens.
