@@ -79,6 +79,12 @@ The Claude coach receives a compact JSON context (profile, limitations, readines
 ### Visual language
 Dark-first, soft "fluff" geometry: large corner radii, glowing gradients, morphing shapes (`androidx.graphics:graphics-shapes`), spring physics everywhere, staggered list entrances, shared-element transitions from the plan card into the workout, and custom Canvas charts that draw themselves in.
 
+## MCP server (`mcp/`)
+Optional. A Cloudflare Worker (D1 for data, KV for OAuth state) in the owner's own account.
+- **Phone → server:** `CloudSync` uploads a JSON snapshot after every wearable sync and every finished workout: the last 30 days of sessions/sets, days (signals, readiness, check-in, plan) and activities, plus profile, goals, computed insights and the exercise library. The server replaces that date window, so edits and deletions propagate. The first upload sends the whole history in 120-day chunks. All maths stays on the phone.
+- **Assistant → phone:** MCP write tools only queue changes in an inbox. On its next sync the phone applies them (scheduled workouts go through `PlanValidator` exactly like the Claude coach's plans and are stored with source `ASSISTANT`, which later signal changes don't overwrite), then reports applied/rejected per change.
+- **Auth:** assistants use OAuth 2.1 + PKCE with dynamic client registration; the sign-in page asks for a random owner key. The phone uses a separate random bearer token.
+
 ## Quality
 - `:core` unit tests cover every engine.
 - `:app` Robolectric tests for repositories/view-models and Roborazzi screenshot tests for key screens.

@@ -24,6 +24,11 @@ data class AppSettings(
     val restTimerSound: Boolean = false,
     val lastSyncEpochMs: Long = 0,
     val lastSyncError: String? = null,
+    /** Fluff MCP server (mcp/) base URL; null when not connected. */
+    val cloudUrl: String? = null,
+    val cloudLastSyncMs: Long = 0,
+    val cloudLastError: String? = null,
+    val cloudFullSyncDone: Boolean = false,
 )
 
 /** Profile and settings live in DataStore as JSON blobs: small, atomic and easy to migrate. */

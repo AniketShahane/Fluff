@@ -181,6 +181,8 @@ class CoachEngine(
         val plan = db.plans().get(day)?.let { runCatching { json.decodeFromString(WorkoutPlan.serializer(), it.json) }.getOrNull() }
         val trainedToday = db.sessions().active() != null || training.completedOn(day)
         if (trainedToday) return
+        // A workout the person asked their assistant for is kept, whatever the new signals say.
+        if (plan?.source == PlanSource.ASSISTANT) return
         val planBand = plan?.readinessScore?.let { app.fluff.core.readiness.ReadinessBand.forScore(it) }
         if (plan == null || planBand != r.band) planToday(adjustments, force = true)
     }

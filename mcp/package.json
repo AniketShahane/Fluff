@@ -1,0 +1,28 @@
+{
+  "name": "fluff-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Remote MCP server and phone sync API for the Fluff weightlifting app, on Cloudflare Workers + D1.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler d1 migrations apply fluff --remote && wrangler deploy",
+    "setup": "bash scripts/setup.sh",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@cloudflare/workers-oauth-provider": "0.10.3",
+    "@hono/mcp": "0.3.2",
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "hono": "4.13.7",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.1.9",
+    "@cloudflare/workers-types": "5.20260914.1",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11",
+    "wrangler": "4.131.2"
+  }
+}

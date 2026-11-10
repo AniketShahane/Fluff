@@ -1,0 +1,24 @@
+// Fluff MCP + phone sync Worker. scripts/setup.sh fills in the D1 database id.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "fluff-mcp",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  // nodejs_compat: the MCP SDK touches a few node: built-ins.
+  // global_fetch_strictly_public: needed by workers-oauth-provider for Client ID Metadata Documents.
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "workers_dev": true,
+  // @hono/mcp lazily imports this optional peer from helpers we never call.
+  "alias": { "hono-rate-limiter": "./src/stubs/hono-rate-limiter.ts" },
+  "observability": {
+    "enabled": true,
+    // Invocation logs would record OAuth query strings. The code never logs bodies or tokens.
+    "logs": { "invocation_logs": false }
+  },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "fluff", "database_id": "REPLACE_WITH_D1_ID", "migrations_dir": "migrations" }
+  ],
+  "kv_namespaces": [
+    { "binding": "OAUTH_KV", "id": "REPLACE_WITH_OAUTH_KV_ID" }
+  ]
+}

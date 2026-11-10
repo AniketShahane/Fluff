@@ -174,6 +174,8 @@ fun FluffRoot(onboarded: Boolean) {
                         saveWhoop = { id, s -> vm.saveWhoopCredentials(id, s) },
                         connectWhoop = { vm.whoopAuthUri { openCustomTab(ctx, it) } },
                         disconnectWhoop = { vm.disconnectWhoop() }, connectHealth = hc, syncNow = { vm.syncNow() },
+                        connectCloud = { url, token, done -> vm.connectCloud(url, token, done) },
+                        disconnectCloud = { vm.disconnectCloud() }, cloudSyncNow = { vm.cloudSyncNow(it) },
                     ),
                 )
             }
