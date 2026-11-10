@@ -100,8 +100,8 @@ class FitbodImportViewModel(private val c: AppContainer) : ViewModel() {
             c.messages.tryEmit(
                 when {
                     added == 0 -> "Nothing new: those workouts are already in Fluff"
-                    skipped > 0 -> "Imported $added workouts ($skipped were already here)"
-                    else -> "Imported $added workouts from Fitbod"
+                    skipped > 0 -> "Imported ${workouts(added)} (${if (skipped == 1) "1 was" else "$skipped were"} already here)"
+                    else -> "Imported ${workouts(added)} from Fitbod"
                 },
             )
         }.onFailure { c.messages.tryEmit("Import failed: ${it.message ?: "unknown error"}") }
@@ -111,6 +111,8 @@ class FitbodImportViewModel(private val c: AppContainer) : ViewModel() {
 
     fun reset() { export = null; _state.value = FitbodImportState.Idle }
 }
+
+private fun workouts(n: Int) = if (n == 1) "1 workout" else "$n workouts"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -177,7 +179,7 @@ object FitbodImportContent {
             Text(range, style = MaterialTheme.typography.bodySmall, color = Fluff.TextFaint)
             if (s.alreadyImported > 0) {
                 Spacer(Modifier.height(6.dp))
-                Text("${s.alreadyImported} already in Fluff, so they'll be skipped", style = MaterialTheme.typography.bodySmall, color = Fluff.TextDim)
+                Text(if (s.alreadyImported == 1) "1 is already in Fluff and will be skipped" else "${s.alreadyImported} are already in Fluff and will be skipped", style = MaterialTheme.typography.bodySmall, color = Fluff.TextDim)
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -209,7 +211,7 @@ object FitbodImportContent {
             }
         }
         Spacer(Modifier.height(18.dp))
-        PrimaryButton(if (newCount > 0) "Import $newCount workouts" else "Nothing new to import", onImport, Modifier.fillMaxWidth(), enabled = newCount > 0)
+        PrimaryButton(if (newCount > 0) "Import ${workouts(newCount)}" else "Nothing new to import", onImport, Modifier.fillMaxWidth(), enabled = newCount > 0)
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             GhostButton("Cancel", onCancel)
