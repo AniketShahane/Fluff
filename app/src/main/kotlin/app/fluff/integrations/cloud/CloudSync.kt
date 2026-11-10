@@ -76,7 +76,7 @@ class CloudSync(
 
     suspend fun disconnect() {
         secrets.put(Secret.CLOUD_SYNC_TOKEN, null)
-        prefs.updateSettings { it.copy(cloudUrl = null, cloudLastSyncMs = 0, cloudLastError = null, cloudFullSyncDone = false) }
+        prefs.updateSettings { it.copy(cloudUrl = null, cloudLastSyncMs = 0, cloudLastError = null, cloudFullSyncDone = false, cloudOlderFingerprint = null) }
     }
 
     /** Safe to call often and concurrently. Returns a human-readable error, or null. */
@@ -90,7 +90,12 @@ class CloudSync(
             // Report before uploading, so a failed upload never makes a change apply twice.
             api.ack(url, token, results)
             val today = LocalDate.now(clock)
-            if (full || !settings.cloudFullSyncDone) {
+            val windowStart = today.minusDays(WINDOW_DAYS - 1)
+            // Sessions added or removed before the last window (e.g. an import of old workouts) need a full upload.
+            val olderChanged = settings.cloudOlderFingerprint?.split("|")?.let { (cutoff, fp) ->
+                db.sessions().fingerprintBefore(cutoff.toLong()) != fp
+            } ?: false
+            if (full || !settings.cloudFullSyncDone || olderChanged) {
                 val first = listOfNotNull(
                     db.sessions().firstDay(),
                     db.signals().firstDay(),
@@ -105,9 +110,10 @@ class CloudSync(
                     from = to.plusDays(1)
                 }
             } else {
-                api.upload(url, token, snapshot(today.minusDays(WINDOW_DAYS - 1), today, reset = false))
+                api.upload(url, token, snapshot(windowStart, today, reset = false))
             }
-            prefs.updateSettings { it.copy(cloudLastSyncMs = clock.millis(), cloudLastError = null, cloudFullSyncDone = true) }
+            val older = "${windowStart.toEpochDay()}|${db.sessions().fingerprintBefore(windowStart.toEpochDay())}"
+            prefs.updateSettings { it.copy(cloudLastSyncMs = clock.millis(), cloudLastError = null, cloudFullSyncDone = true, cloudOlderFingerprint = older) }
             null
         } catch (e: Exception) {
             val msg = e.message ?: e.javaClass.simpleName

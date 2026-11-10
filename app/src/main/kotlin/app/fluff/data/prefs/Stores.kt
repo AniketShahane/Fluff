@@ -29,6 +29,8 @@ data class AppSettings(
     val cloudLastSyncMs: Long = 0,
     val cloudLastError: String? = null,
     val cloudFullSyncDone: Boolean = false,
+    /** "cutoffEpochDay|fingerprint" of sessions older than the last uploaded window. */
+    val cloudOlderFingerprint: String? = null,
 )
 
 /** Profile and settings live in DataStore as JSON blobs: small, atomic and easy to migrate. */

@@ -53,6 +53,10 @@ interface SessionDao {
 
     @Query("SELECT MIN(epochDay) FROM sessions") suspend fun firstDay(): Long?
 
+    /** "count:sum of ids" of sessions before a day: changes when old sessions are imported or deleted. */
+    @Query("SELECT COUNT(*) || ':' || COALESCE(SUM(id), 0) FROM sessions WHERE status != 'DISCARDED' AND epochDay < :beforeDay")
+    suspend fun fingerprintBefore(beforeDay: Long): String
+
     @Query("DELETE FROM sessions WHERE id = :id") suspend fun delete(id: Long)
     @Query("SELECT COUNT(*) FROM sessions WHERE epochDay = :day AND status = 'COMPLETED'") suspend fun countCompletedOn(day: Long): Int
 }

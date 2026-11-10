@@ -70,7 +70,7 @@ class CloudSyncTest {
         db = Room.inMemoryDatabaseBuilder(ctx, FluffDatabase::class.java).allowMainThreadQueries().build()
         prefs = PreferencesStore(ctx)
         prefs.updateProfile { SampleData.profile }
-        prefs.updateSettings { it.copy(cloudUrl = null, cloudFullSyncDone = false, cloudLastSyncMs = 0, cloudLastError = null) }
+        prefs.updateSettings { it.copy(cloudUrl = null, cloudFullSyncDone = false, cloudLastSyncMs = 0, cloudLastError = null, cloudOlderFingerprint = null) }
         training = TrainingRepository(db, clock, json)
         val engine = CoachEngine(db, prefs, training, ClaudeCoach { null }, clock, json, TestScope())
         server = MockWebServer()
@@ -152,6 +152,21 @@ class CloudSyncTest {
         val r = uploads.single()["range"]!!.jsonObject
         assertThat(r["from"]!!.jsonPrimitive.content).isEqualTo(SampleData.today.minusDays(29).toString())
         assertThat(prefs.settings.first().cloudLastError).isNull()
+
+        // Importing an old workout (e.g. from Fitbod) triggers a full re-upload on the next sync.
+        uploads.clear()
+        db.sessions().insert(
+            SessionEntity(
+                id = 5000, epochDay = SampleData.today.minusDays(900).toEpochDay(), startedAt = 0, endedAt = 1, focus = null,
+                title = "Imported", planJson = null, source = "FITBOD", readinessScore = null, status = SessionStatus.COMPLETED,
+            ),
+        )
+        assertThat(cloud.sync()).isNull()
+        assertThat(uploads.first()["reset"]!!.jsonPrimitive.boolean).isTrue()
+        assertThat(uploads.flatMap { u -> u["sessions"]!!.jsonArray.map { it.jsonObject["id"]!!.jsonPrimitive.int } }).contains(5000)
+        uploads.clear()
+        assertThat(cloud.sync()).isNull()
+        assertThat(uploads).hasSize(1)
     }
 
     @Test fun appliesQueuedChangesAndReportsTheOutcome() = runTest {
