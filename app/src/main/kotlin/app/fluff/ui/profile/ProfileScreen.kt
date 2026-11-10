@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -89,7 +91,7 @@ data class ProfileActions(
 
 private enum class Editor { NAME, GOAL, EMPHASIS, EXPERIENCE, SCHEDULE, EQUIPMENT, LIMITS, ACTIVITIES, BODY, CLAUDE, WHOOP, CLOUD }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ProfileScreen(state: ProfileState, actions: ProfileActions, modifier: Modifier = Modifier) {
     val p = state.profile
@@ -179,7 +181,7 @@ fun ProfileScreen(state: ProfileState, actions: ProfileActions, modifier: Modifi
                 connected = c.cloudConnected && s.cloudLastError == null,
             ) {
                 if (c.cloudConnected) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         GhostButton(if (state.cloudSyncing) "Uploading…" else "Upload now", { actions.cloudSyncNow(false) }, icon = Icons.Rounded.Sync)
                         GhostButton("Disconnect", actions.disconnectCloud)
                     }
@@ -230,7 +232,7 @@ fun ProfileScreen(state: ProfileState, actions: ProfileActions, modifier: Modifi
         }
         item {
             Text(
-                "Your data stays on this phone. With the AI coach on, a compact training summary (never your name) is sent to Anthropic to plan sessions. With Claude & ChatGPT connected, your training data is copied to your own server so your assistant can read it. Fluff ${BuildConfig.VERSION_NAME}",
+                "Your data stays on this phone. With the AI coach on, a compact training summary (never your name) is sent to Anthropic to plan sessions. With Claude & ChatGPT connected, your training data is copied to your own server so your assistant can read it.\nFluff ${BuildConfig.VERSION_NAME}",
                 style = MaterialTheme.typography.bodySmall, color = Fluff.TextFaint, modifier = Modifier.padding(top = 12.dp, start = 4.dp, end = 4.dp),
             )
         }
